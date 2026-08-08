@@ -1,0 +1,889 @@
+{% extends "base.html" %}
+
+{% block title %}管理员后台 - CloudDrive{% endblock %}
+
+{% block content %}
+<style>
+.selected-count { font-weight: bold; color: #667eea; }
+.action-btn { position: relative; overflow: hidden; }
+.space-table td, .space-table th { vertical-align: middle; }
+.tab-content { padding-top: 16px; }
+.space-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: all 0.2s;
+}
+.space-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.space-card .space-name { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.space-card .space-path { font-size: 12px; color: #999; word-break: break-all; }
+.space-card .space-meta { font-size: 13px; color: #666; margin-top: 8px; }
+.space-card .space-actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.auto-assign-group { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #e0e0e0; border-radius: 6px; padding: 2px 8px; }
+.auto-assign-label { font-size: 12px; color: #666; white-space: nowrap; }
+.auto-assign-input { width: 60px; border: none; outline: none; font-size: 13px; padding: 2px 4px; text-align: center; }
+.auto-assign-unit { font-size: 12px; color: #999; }
+.user-space-group { margin-bottom: 16px; }
+.user-space-group .group-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; padding: 8px 12px; background: #f0f0f0; border-radius: 6px; }
+.user-space-group .group-body { padding-left: 12px; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; display: inline-block; }
+</style>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-people-fill"></i> 用户管理</h5>
+        <div id="actionButtons" style="display:none;">
+            <span class="me-2">已选择 <span class="selected-count" id="selectedCount">0</span> 个用户</span>
+            <button class="btn btn-danger btn-sm action-btn" onclick="batchDeleteUsers()">
+                <i class="bi bi-person-x"></i> 删除用户
+            </button>
+            <button class="btn btn-outline-danger btn-sm ms-2 action-btn" onclick="batchClearFiles()">
+                <i class="bi bi-trash"></i> 清除存储
+            </button>
+            <button class="btn btn-primary btn-sm ms-2 action-btn" onclick="openSpaceManager()">
+                <i class="bi bi-hdd-rack"></i> 存储空间管理
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
+                    <th>ID</th>
+                    <th>用户名</th>
+                    <th>邮箱</th>
+                    <th>总使用</th>
+                    <th>文件数</th>
+                    <th>存储空间</th>
+                    <th>角色</th>
+                    <th>注册时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td><input type="checkbox" name="user_ids" value="{{ user.id }}" class="user-checkbox" onchange="updateSelection()"></td>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.get_total_used() | filesizeformat }}</td>
+                    <td>{{ user.files.count() }}</td>
+                    <td>
+                        {% for space in user.spaces %}
+                        <span class="badge bg-info me-1">{{ space.name }}</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if user.is_admin %}
+                        <span class="badge bg-danger">管理员</span>
+                        {% else %}
+                        <span class="badge bg-secondary">普通用户</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
+                    <td>
+                        {% if not user.is_admin %}
+                        <button class="btn btn-sm btn-outline-warning" onclick="toggleAdmin({{ user.id }}, '{{ user.username }}')">
+                            <i class="bi bi-shield-lock"></i> 设为管理员
+                        </button>
+                        {% else %}
+                        <button class="btn btn-sm btn-outline-secondary" onclick="revokeAdmin({{ user.id }}, '{{ user.username }}')">
+                            <i class="bi bi-shield-x"></i> 取消管理员
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if pagination.pages > 1 %}
+        <nav>
+            <ul class="pagination justify-content-center">
+                {% if pagination.has_prev %}
+                <li class="page-item"><a class="page-link" href="?page={{ pagination.prev_num }}">上一页</a></li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">上一页</span></li>
+                {% endif %}
+                
+                {% for p in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                    {% if p %}
+                        {% if p == pagination.page %}
+                        <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                        {% else %}
+                        <li class="page-item"><a class="page-link" href="?page={{ p }}">{{ p }}</a></li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if pagination.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ pagination.next_num }}">下一页</a></li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">下一页</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+        <div class="text-center text-muted mb-3">
+            共 {{ pagination.total }} 个用户，第 {{ pagination.page }} / {{ pagination.pages }} 页
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-hdd-rack"></i> 存储空间管理</h5>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addSpaceModal">
+            <i class="bi bi-plus-lg"></i> 添加空间
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for space in spaces %}
+            <div class="col-md-6 col-lg-4">
+                <div class="space-card" data-space-id="{{ space.id }}">
+                    <div class="space-name">
+                        {% if space.id == default_space_id %}
+                        <i class="bi bi-star-fill text-warning"></i>
+                        {% endif %}
+                        {{ space.name }}
+                    </div>
+                    <div class="space-path">{{ space.path }}</div>
+                    <div class="space-meta">
+                        总容量：{{ space.max_capacity | filesizeformat }} · 
+                        已用：{{ space.get_used_storage() | filesizeformat }} ·
+                        用户数：{{ space.users | length }}
+                        {% if space.is_readonly %}
+                        <span class="badge bg-warning ms-1">只读</span>
+                        {% else %}
+                        <span class="badge bg-info ms-1">自动分配：{{ space.auto_assign }}MB</span>
+                        {% endif %}
+                    </div>
+                    <div class="space-actions">
+                        <button class="btn btn-sm btn-outline-primary" onclick="setDefaultSpace({{ space.id }})">
+                            <i class="bi bi-star"></i> 设为默认
+                        </button>
+                        {% if not space.is_readonly %}
+                        <button class="btn btn-sm btn-outline-success" onclick="openAutoAssignModal({{ space.id }}, {{ space.auto_assign }})">
+                            <i class="bi bi-gear"></i> 自动分配
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-sm {{ 'btn-warning' if space.is_readonly else 'btn-outline-secondary' }}" onclick="toggleReadonly({{ space.id }})">
+                            <i class="bi bi-{{ 'lock' if space.is_readonly else 'unlock' }}"></i> {{ '取消只读' if space.is_readonly else '设为只读' }}
+                        </button>
+                        {% if space.is_readonly %}
+                        <button class="btn btn-sm btn-outline-info" onclick="buildIndex({{ space.id }})">
+                            <i class="bi bi-search"></i> 构建索引
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteSpace({{ space.id }}, '{{ space.name }}')">
+                            <i class="bi bi-trash"></i> 删除
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% if not spaces %}
+        <div class="text-center text-muted py-4">暂无存储空间</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 添加空间弹窗 -->
+<div class="modal fade" id="addSpaceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-lg"></i> 添加存储空间</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addSpaceForm" method="POST" action="{{ url_for('admin_add_space') }}">
+                    <div class="mb-3">
+                        <label class="form-label">空间名称</label>
+                        <input type="text" name="space_name" class="form-control" required placeholder="例如：D盘存储">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">存储路径（绝对路径）</label>
+                        <input type="text" name="space_path" class="form-control" required placeholder="例如：D:\cloud_storage">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">总容量 (GB，支持小数)</label>
+                        <input type="number" name="max_capacity" class="form-control" step="0.1" min="0.1" required placeholder="例如：0.1 表示 102MB">
+                        <div class="form-text">0.1GB = 102MB（向下取整）</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('addSpaceForm').submit()">添加</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 存储空间管理弹窗 -->
+<div class="modal fade" id="spaceManagerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-hdd-rack"></i> 存储空间管理</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="spaceManagerContent">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="mt-2">加载中...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 修改空间容量弹窗 -->
+<div class="modal fade" id="editSpaceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square"></i> 修改空间容量</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">空间名称</label>
+                    <input type="text" id="editSpaceName" class="form-control" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">当前使用</label>
+                    <input type="text" id="editSpaceUsed" class="form-control" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">最大容量 (GB，支持小数)</label>
+                    <input type="number" id="editSpaceCapacity" class="form-control" step="0.1" min="0.1">
+                    <div class="form-text">0.1GB = 102MB（向下取整）</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveSpaceCapacity()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量设置空间容量弹窗 -->
+<div class="modal fade" id="batchEditSpaceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square"></i> 批量设置空间容量</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">选择空间</label>
+                    <select id="batchSpaceSelect" class="form-select"></select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">最大容量 (GB，支持小数)</label>
+                    <input type="number" id="batchSpaceCapacity" class="form-control" step="0.1" min="0.1">
+                    <div class="form-text">0.1GB = 102MB（向下取整）</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveBatchSpaceCapacity()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedUsers = [];
+let currentEditUserId = null;
+let currentEditSpaceId = null;
+let currentSpaceManagerData = null;
+
+function toggleAll(source) {
+    const checkboxes = document.querySelectorAll('.user-checkbox');
+    checkboxes.forEach(cb => cb.checked = source.checked);
+    updateSelection();
+}
+
+function updateSelection() {
+    const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+    selectedUsers = Array.from(checkboxes).map(cb => cb.value);
+    const count = selectedUsers.length;
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('actionButtons').style.display = count > 0 ? 'inline-block' : 'none';
+}
+
+function batchDeleteUsers() {
+    if (selectedUsers.length === 0) return;
+    if (!confirm('确定删除 ' + selectedUsers.length + ' 个用户及其所有数据？')) return;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/delete_users';
+    selectedUsers.forEach(function(uid) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'user_ids';
+        input.value = uid;
+        form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function batchClearFiles() {
+    if (selectedUsers.length === 0) return;
+    if (!confirm('确定清除 ' + selectedUsers.length + ' 个用户的文件？')) return;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/clear_user_files';
+    selectedUsers.forEach(function(uid) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'user_ids';
+        input.value = uid;
+        form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function toggleAdmin(userId, username) {
+    if (!confirm('确定将用户 "' + username + '" 设为管理员？')) return;
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/toggle_admin';
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'user_id';
+    input.value = userId;
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function revokeAdmin(userId, username) {
+    document.getElementById('revokeAdminUserId').value = userId;
+    document.getElementById('revokeAdminUsername').textContent = username;
+    document.getElementById('revokePasswordInput').value = '';
+    document.getElementById('revokeAdminModal').style.display = 'block';
+}
+
+function closeRevokeModal() {
+    document.getElementById('revokeAdminModal').style.display = 'none';
+}
+
+function confirmRevokeAdmin() {
+    var password = document.getElementById('revokePasswordInput').value;
+    if (!password) {
+        alert('密码不能为空');
+        return;
+    }
+    var userId = document.getElementById('revokeAdminUserId').value;
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/toggle_admin';
+    var input1 = document.createElement('input');
+    input1.type = 'hidden';
+    input1.name = 'user_id';
+    input1.value = userId;
+    form.appendChild(input1);
+    var input2 = document.createElement('input');
+    input2.type = 'hidden';
+    input2.name = 'revoke_password';
+    input2.value = password;
+    form.appendChild(input2);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function setDefaultSpace(spaceId) {
+    if (!confirm('确定将此空间设为新用户默认空间？')) return;
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/set_default_space';
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'space_id';
+    input.value = spaceId;
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function deleteSpace(spaceId, spaceName) {
+    if (!confirm('确定删除空间 "' + spaceName + '"？此操作将移除所有用户对该空间的访问权限，但不会删除磁盘上的文件。')) return;
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/delete_space';
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'space_id';
+    input.value = spaceId;
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function toggleReadonly(spaceId) {
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/toggle_readonly';
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'space_id';
+    input.value = spaceId;
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function openAutoAssignModal(spaceId, currentMB) {
+    document.getElementById('autoAssignSpaceId').value = spaceId;
+    document.getElementById('autoAssignValue').value = currentMB;
+    document.getElementById('autoAssignUnit').value = '1';
+    var spaceName = document.querySelector('[data-space-id="' + spaceId + '"] .space-name')?.textContent || '空间';
+    document.getElementById('autoAssignSpaceName').textContent = spaceName;
+    document.getElementById('autoAssignModal').style.display = 'flex';
+}
+
+function closeAutoAssignModal() {
+    document.getElementById('autoAssignModal').style.display = 'none';
+}
+
+function confirmAutoAssign() {
+    var val = parseFloat(document.getElementById('autoAssignValue').value);
+    var unit = parseInt(document.getElementById('autoAssignUnit').value);
+    if (isNaN(val) || val < 0) {
+        alert('请输入有效数值');
+        return;
+    }
+    var mbValue = Math.round(val * unit);
+    var spaceId = document.getElementById('autoAssignSpaceId').value;
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/set_auto_assign';
+    var input1 = document.createElement('input');
+    input1.type = 'hidden';
+    input1.name = 'space_id';
+    input1.value = spaceId;
+    form.appendChild(input1);
+    var input2 = document.createElement('input');
+    input2.type = 'hidden';
+    input2.name = 'auto_assign';
+    input2.value = mbValue;
+    form.appendChild(input2);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function buildIndex(spaceId) {
+    var btn = event.target.closest('button');
+    var originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> 构建中...';
+    btn.disabled = true;
+    
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/admin/build_index', true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            var data = JSON.parse(xhr.responseText);
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert(data.message || '构建失败');
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            }
+        } else {
+            alert('请求失败，请重试');
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+        }
+    };
+    xhr.onerror = function() {
+        alert('网络错误，请重试');
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    };
+    xhr.send('space_id=' + spaceId);
+}
+
+function openSpaceManager() {
+    if (selectedUsers.length === 0) return;
+    
+    var content = document.getElementById('spaceManagerContent');
+    content.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">加载中...</div></div>';
+    
+    var modal = new bootstrap.Modal(document.getElementById('spaceManagerModal'));
+    modal.show();
+    
+    fetch('/admin/user_spaces?user_ids=' + selectedUsers.join(','))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            currentSpaceManagerData = data;
+            var html = '';
+            
+            if (selectedUsers.length === 1) {
+                // 单个用户：显示详细列表
+                var userId = selectedUsers[0];
+                var userData = data.users[userId];
+                
+                if (userData.spaces.length === 0) {
+                    html = '<div class="text-center text-muted py-4">该用户暂无存储空间</div>';
+                } else {
+                    html += '<table class="table table-sm table-bordered space-table">';
+                    html += '<thead><tr><th>空间名称</th><th>已使用</th><th>最大容量</th><th style="width:100px;">操作</th></tr></thead>';
+                    html += '<tbody>';
+                    
+                    userData.spaces.forEach(function(space) {
+                        html += '<tr>';
+                        html += '<td>' + space.name + '</td>';
+                        html += '<td>' + space.used + '</td>';
+                        html += '<td>' + space.max + '</td>';
+                        html += '<td>';
+                        html += '<button class="btn btn-sm btn-link p-0 text-primary" onclick="openEditSpace(' + userId + ',' + space.id + ',\'' + space.name.replace(/'/g, "\\'") + '\',\'' + space.used + '\',' + space.max_bytes + ')" title="修改容量"><i class="bi bi-pencil-square"></i></button>';
+                        html += '<button class="btn btn-sm btn-link p-0 text-danger ms-2" onclick="removeUserSpace(' + userId + ',' + space.id + ')" title="移除权限"><i class="bi bi-trash"></i></button>';
+                        html += '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table>';
+                }
+                
+                html += '<hr>';
+                html += '<div class="mt-3">';
+                html += '<div class="fw-bold mb-2">分配新空间</div>';
+                html += '<div class="d-flex gap-2">';
+                html += '<select id="assignSpaceSelect" class="form-select">';
+                html += '<option value="">选择空间...</option>';
+                if (userData.available_spaces.length === 0) {
+                    html += '<option value="" disabled>无可用空间</option>';
+                } else {
+                    userData.available_spaces.forEach(function(space) {
+                        html += '<option value="' + space.id + '">' + space.name + '</option>';
+                    });
+                }
+                html += '</select>';
+                html += '<button class="btn btn-primary" onclick="assignSpaceToUser(' + userId + ')">分配</button>';
+                html += '</div></div>';
+            } else {
+                // 多个用户：按空间分类显示
+                html += '<div class="fw-bold mb-3">批量设置空间容量</div>';
+                
+                // 按空间分类
+                var spaceGroups = {};
+                var allSpaceIds = new Set();
+                
+                selectedUsers.forEach(function(uid) {
+                    var uData = data.users[uid];
+                    uData.spaces.forEach(function(s) {
+                        allSpaceIds.add(s.id);
+                        if (!spaceGroups[s.id]) {
+                            spaceGroups[s.id] = { name: s.name, users: [] };
+                        }
+                        spaceGroups[s.id].users.push({ id: uid, name: uData.username });
+                    });
+                });
+                
+                // 显示每个空间下的用户
+                Object.keys(spaceGroups).forEach(function(sid) {
+                    var group = spaceGroups[sid];
+                    html += '<div class="user-space-group">';
+                    html += '<div class="group-title"><i class="bi bi-hdd-rack"></i> ' + group.name + ' (' + group.users.length + ' 个用户)</div>';
+                    html += '<div class="group-body">';
+                    group.users.forEach(function(u) {
+                        html += '<div class="d-flex justify-content-between align-items-center py-1">';
+                        html += '<span>' + u.name + '</span>';
+                        html += '<button class="btn btn-sm btn-link p-0 text-primary" onclick="openEditSpace(' + u.id + ',' + sid + ',\'' + group.name.replace(/'/g, "\\'") + '\',\'\',0)" title="修改容量"><i class="bi bi-pencil-square"></i></button>';
+                        html += '</div>';
+                    });
+                    html += '</div></div>';
+                });
+                
+                // 批量设置按钮
+                html += '<hr>';
+                html += '<div class="mt-3">';
+                html += '<button class="btn btn-primary w-100" onclick="openBatchEditSpace()"><i class="bi bi-pencil-square"></i> 批量设置空间容量</button>';
+                html += '</div>';
+                
+                // 分配空间
+                html += '<hr>';
+                html += '<div class="mt-3">';
+                html += '<div class="fw-bold mb-2">批量分配空间</div>';
+                html += '<div class="d-flex gap-2">';
+                html += '<select id="batchAssignSelect" class="form-select">';
+                html += '<option value="">选择空间...</option>';
+                if (data.all_spaces.length === 0) {
+                    html += '<option value="" disabled>无可用空间</option>';
+                } else {
+                    data.all_spaces.forEach(function(space) {
+                        html += '<option value="' + space.id + '">' + space.name + '</option>';
+                    });
+                }
+                html += '</select>';
+                html += '<button class="btn btn-primary" onclick="batchAssignSpace()">分配</button>';
+                html += '</div></div>';
+            }
+            
+            content.innerHTML = html;
+        })
+        .catch(function(err) {
+            content.innerHTML = '<div class="text-center text-danger py-4">加载失败：' + err.message + '</div>';
+        });
+}
+
+function openEditSpace(userId, spaceId, spaceName, spaceUsed, maxBytes) {
+    currentEditUserId = userId;
+    currentEditSpaceId = spaceId;
+    document.getElementById('editSpaceName').value = spaceName;
+    document.getElementById('editSpaceUsed').value = spaceUsed || '-';
+    document.getElementById('editSpaceCapacity').value = maxBytes > 0 ? (maxBytes / 1024 / 1024 / 1024).toFixed(1) : '';
+    var modal = new bootstrap.Modal(document.getElementById('editSpaceModal'));
+    modal.show();
+}
+
+function saveSpaceCapacity() {
+    var capacity = document.getElementById('editSpaceCapacity').value;
+    if (!capacity || capacity < 0.1) {
+        alert('请输入有效容量（最小0.1GB）');
+        return;
+    }
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/update_space_capacity';
+    var fields = [
+        {name: 'user_id', value: currentEditUserId},
+        {name: 'space_id', value: currentEditSpaceId},
+        {name: 'capacity', value: capacity}
+    ];
+    fields.forEach(function(f) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = f.name;
+        input.value = f.value;
+        form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function removeUserSpace(userId, spaceId) {
+    if (!confirm('确定移除该用户对此空间的访问权限？')) return;
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/remove_user_space';
+    var fields = [
+        {name: 'user_id', value: userId},
+        {name: 'space_id', value: spaceId}
+    ];
+    fields.forEach(function(f) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = f.name;
+        input.value = f.value;
+        form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function assignSpaceToUser(userId) {
+    var select = document.getElementById('assignSpaceSelect');
+    var spaceId = select.value;
+    if (!spaceId) {
+        alert('请选择空间');
+        return;
+    }
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/assign_space';
+    var fields = [
+        {name: 'user_ids', value: userId},
+        {name: 'space_id', value: spaceId}
+    ];
+    fields.forEach(function(f) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = f.name;
+        input.value = f.value;
+        form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function openBatchEditSpace() {
+    if (!currentSpaceManagerData) return;
+    var select = document.getElementById('batchSpaceSelect');
+    select.innerHTML = '';
+    
+    // 收集所有涉及的空间
+    var spaceMap = {};
+    selectedUsers.forEach(function(uid) {
+        var uData = currentSpaceManagerData.users[uid];
+        uData.spaces.forEach(function(s) {
+            spaceMap[s.id] = s.name;
+        });
+    });
+    
+    Object.keys(spaceMap).forEach(function(sid) {
+        var opt = document.createElement('option');
+        opt.value = sid;
+        opt.textContent = spaceMap[sid];
+        select.appendChild(opt);
+    });
+    
+    document.getElementById('batchSpaceCapacity').value = '';
+    var modal = new bootstrap.Modal(document.getElementById('batchEditSpaceModal'));
+    modal.show();
+}
+
+function saveBatchSpaceCapacity() {
+    var spaceId = document.getElementById('batchSpaceSelect').value;
+    var capacity = document.getElementById('batchSpaceCapacity').value;
+    
+    if (!spaceId) {
+        alert('请选择空间');
+        return;
+    }
+    if (!capacity || capacity < 0.1) {
+        alert('请输入有效容量（最小0.1GB）');
+        return;
+    }
+    
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/batch_update_space_capacity';
+    var fields = [
+        {name: 'space_id', value: spaceId},
+        {name: 'capacity', value: capacity}
+    ];
+    selectedUsers.forEach(function(uid) {
+        fields.push({name: 'user_ids', value: uid});
+    });
+    fields.forEach(function(f) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = f.name;
+        input.value = f.value;
+        form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function batchAssignSpace() {
+    var select = document.getElementById('batchAssignSelect');
+    var spaceId = select.value;
+    if (!spaceId) {
+        alert('请选择空间');
+        return;
+    }
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/assign_space';
+    selectedUsers.forEach(function(uid) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'user_ids';
+        input.value = uid;
+        form.appendChild(input);
+    });
+    var input2 = document.createElement('input');
+    input2.type = 'hidden';
+    input2.name = 'space_id';
+    input2.value = spaceId;
+    form.appendChild(input2);
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>
+
+<style>
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+.modal-overlay.show { display: flex; }
+.modal-box {
+    background: #fff;
+    border-radius: 8px;
+    padding: 24px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+.modal-box h5 { margin-bottom: 12px; }
+.modal-box input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    margin: 12px 0;
+    box-sizing: border-box;
+}
+.modal-box input:focus { outline: none; border-color: #667eea; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.modal-actions .btn { padding: 6px 20px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; }
+.btn-cancel { background: #f5f5f5; color: #333; }
+.btn-confirm { background: #667eea; color: #fff; }
+.btn-confirm:hover { opacity: 0.9; }
+</style>
+
+<div class="modal-overlay" id="revokeAdminModal" onclick="if(event.target===this)closeRevokeModal()">
+    <div class="modal-box">
+        <h5>取消管理员权限</h5>
+        <p>确定要取消用户 <strong id="revokeAdminUsername"></strong> 的管理员权限？</p>
+        <input type="password" id="revokePasswordInput" placeholder="请输入验证密码" onkeydown="if(event.key==='Enter')confirmRevokeAdmin()">
+        <div class="modal-actions">
+            <button class="btn btn-cancel" onclick="closeRevokeModal()">取消</button>
+            <button class="btn btn-confirm" onclick="confirmRevokeAdmin()">确认</button>
+        </div>
+    </div>
+</div>
+<input type="hidden" id="revokeAdminUserId">
+
+<div class="modal-overlay" id="autoAssignModal" onclick="if(event.target===this)closeAutoAssignModal()">
+    <div class="modal-box">
+        <h5>设置自动分配</h5>
+        <p>空间：<strong id="autoAssignSpaceName"></strong></p>
+        <div style="display:flex;gap:8px;align-items:center;margin:12px 0;">
+            <input type="number" id="autoAssignValue" min="0" placeholder="输入数值" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" onkeydown="if(event.key==='Enter')confirmAutoAssign()">
+            <select id="autoAssignUnit" style="padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                <option value="1">MB</option>
+                <option value="1024">GB</option>
+                <option value="1048576">TB</option>
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-cancel" onclick="closeAutoAssignModal()">取消</button>
+            <button class="btn btn-confirm" onclick="confirmAutoAssign()">确认</button>
+        </div>
+    </div>
+</div>
+<input type="hidden" id="autoAssignSpaceId">
+{% endblock %}

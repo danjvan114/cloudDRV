@@ -1,0 +1,364 @@
+{% extends "base_nobanner.html" %}
+
+{% block title %}我的文件 - CloudDrive{% endblock %}
+
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/css/mdui.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/js/mdui.min.js"></script>
+
+<style>
+body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
+.container { max-width: 100%; padding: 0; }
+.layout { display: flex; height: 100vh; }
+.sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: #f5f5f5;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+.sidebar-section { padding: 8px 0; }
+.sidebar-section-title {
+    padding: 8px 16px;
+    font-size: 12px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+    text-decoration: none;
+    color: inherit;
+    user-select: none;
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+.sidebar-item * {
+    pointer-events: none;
+}
+.sidebar-item:hover { background: #e8e8e8; }
+.sidebar-item.active { background: #e3f2fd; color: #1976d2; }
+.sidebar-item i { margin-right: 12px; font-size: 20px; }
+.sidebar-item .item-info { flex: 1; }
+.sidebar-item .item-name { font-size: 14px; font-weight: 500; }
+.sidebar-item .item-desc { font-size: 12px; color: #999; }
+.sidebar-divider { height: 1px; background: #e0e0e0; margin: 4px 16px; }
+.main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #fff;
+}
+.toolbar-title { font-size: 18px; font-weight: 500; }
+.toolbar-info { font-size: 13px; color: #999; }
+.search-bar { padding: 12px 20px; border-bottom: 1px solid #f0f0f0; background: #fafafa; }
+.search-result-info { padding: 8px 20px; font-size: 13px; color: #666; background: #fff; border-bottom: 1px solid #f0f0f0; }
+.file-list { flex: 1; overflow-y: auto; }
+.file-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.15s;
+}
+.file-item:hover { background: #f5f5f5; }
+.file-item .file-icon { margin-right: 12px; font-size: 24px; color: #666; }
+.file-item .file-info { flex: 1; }
+.file-item .file-name { font-size: 14px; word-break: break-all; }
+.file-item .file-meta { font-size: 12px; color: #999; margin-top: 2px; }
+.file-item .file-actions { display: flex; gap: 4px; }
+.file-item.file-preserved { background: #fef9e7; }
+.file-item.file-preserved:hover { background: #fdf3d7; }
+.preserve-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 11px;
+    background: #9c27b0;
+    color: #fff;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #999;
+}
+.empty-state svg { width: 240px; height: auto; opacity: 0.6; }
+.empty-state p { font-size: 14px; margin-top: 16px; }
+.upload-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100;
+}
+</style>
+
+<div class="cc3">
+    <div class="mdui-toolbar mdui-color-theme">
+      <a href="javascript:;" class="mdui-btn mdui-btn-icon"><i class="mdui-icon material-icons">menu</i></a>
+      <span class="mdui-typo-title">存储</span>
+      <div class="mdui-toolbar-spacer"></div>
+      
+    </div>
+</div>
+
+
+
+
+<div class="layout">
+    <div class="sidebar">
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">账户</div>
+            <div class="sidebar-item mdui-ripple" onclick="location.href='{{ url_for('account') }}'">
+                <i class="mdui-icon material-icons">person</i>
+                <div class="item-info">
+                    <div class="item-name">用户中心</div>
+                </div>
+            </div>
+            {% if session.is_admin %}
+            <div class="sidebar-item mdui-ripple" onclick="location.href='{{ url_for('admin_panel') }}'">
+                <i class="mdui-icon material-icons">cloud</i>
+                <div class="item-info">
+                    <div class="item-name">后台管理</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="sidebar-divider"></div>
+        
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">存储空间</div>
+            {% for space in spaces_info %}
+            <div class="sidebar-item mdui-ripple {% if space.is_current %}active{% endif %}" 
+                 onclick="location.href='{{ url_for('myfiles') }}?space_id={{ space.id }}'">
+                <i class="mdui-icon material-icons">{% if space.is_current %}check_circle{% else %}storage{% endif %}</i>
+                <div class="item-info">
+                    <div class="item-name">
+                        {{ space.name }}
+                        {% if space.is_readonly %}
+                        <span class="badge bg-warning" style="font-size:10px;padding:1px 4px;">只读</span>
+                        {% endif %}
+                    </div>
+                    <div class="mdui-progress" style="margin-top:6px;">
+                        <div class="mdui-progress-determinate" style="width: {{ space.percentage }}%;"></div>
+                    </div>
+                    <div class="item-desc">可用：{{ space.available }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+  
+        
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-item mdui-ripple" onclick="location.href='{{ url_for('logout') }}'">
+            <i class="mdui-icon material-icons">exit_to_app</i>
+            <div class="item-info">
+                <div class="item-name">退出登录</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="main-content">
+        <div class="toolbar">
+            <div class="toolbar-title">
+                {{ current_space.name }}
+                {% if current_space.is_readonly %}
+                <span class="badge bg-warning ms-2" style="font-size:12px;">只读</span>
+                {% endif %}
+            </div>
+            <div class="toolbar-info">已用 {{ space_info.used }} / {{ space_info.max }}</div>
+        </div>
+        
+        <div class="search-bar">
+            <form method="GET" action="{{ url_for('myfiles') }}" style="display:flex;gap:8px;align-items:center;">
+                <select name="space_id" style="padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;font-size:14px;outline:none;background:#fff;min-width:140px;">
+                    {% for s in spaces_info %}
+                    <option value="{{ s.id }}" {% if s.is_current %}selected{% endif %}>{{ s.name }}{% if s.is_readonly %} (只读){% endif %}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="搜索文件名..." 
+                       style="flex:1;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;font-size:14px;outline:none;">
+                <button type="submit" class="mdui-btn mdui-btn-raised mdui-color-theme" style="border-radius:6px;">
+                    <i class="mdui-icon material-icons" style="font-size:18px;margin-right:4px;">search</i> 搜索
+                </button>
+                {% if search_query %}
+                <a href="{{ url_for('myfiles') }}" class="mdui-btn mdui-btn-raised" style="border-radius:6px;background:#f5f5f5;" title="清除搜索">
+                    <i class="mdui-icon material-icons" style="font-size:18px;">close</i>
+                </a>
+                {% endif %}
+            </form>
+        </div>
+        
+        {% if search_query %}
+        <div class="search-result-info">
+            搜索 "{{ search_query }}" 的结果（{{ files | length }} 个文件）
+        </div>
+        {% endif %}
+        
+        <div class="file-list">
+            {% if files %}
+            {% for file in files %}
+            <div class="file-item {% if file.is_preserved %}file-preserved{% endif %}">
+                <i class="mdui-icon material-icons file-icon">insert_drive_file</i>
+                <div class="file-info">
+                    <div class="file-name">
+                        {% if file.is_preserved %}
+                        <span class="preserve-badge">保留</span>
+                        {% endif %}
+                        {{ file.original_name }}
+                    </div>
+                    <div class="file-meta">{{ file.file_size | filesizeformat }} · {{ file.upload_time }}</div>
+                </div>
+                <div class="file-actions">
+                    <a href="{{ url_for('download', md5=file.md5) }}" class="mdui-btn mdui-btn-icon mdui-text-color-blue"
+                       mdui-tooltip="{content: '下载'}">
+                        <i class="mdui-icon material-icons">file_download</i>
+                    </a>
+                    <button class="mdui-btn mdui-btn-icon mdui-text-color-green" onclick="generateLink('{{ file.md5 }}')"
+                            mdui-tooltip="{content: '生成直链'}">
+                        <i class="mdui-icon material-icons">link</i>
+                    </button>
+                    <button class="mdui-btn mdui-btn-icon mdui-text-color-orange" onclick="renameFile('{{ file.md5 }}', '{{ file.original_name }}')"
+                            mdui-tooltip="{content: '重命名'}">
+                        <i class="mdui-icon material-icons">edit</i>
+                    </button>
+                    <form method="POST" action="{{ url_for('toggle_preserve', md5=file.md5) }}" style="display:inline;">
+                        <button type="submit" class="mdui-btn mdui-btn-icon {% if file.is_preserved %}mdui-text-color-purple{% else %}mdui-text-color-teal{% endif %}"
+                                mdui-tooltip="{content: '{% if file.is_preserved %}取消保留{% else %}标记为保留{% endif %}'}">
+                            <i class="mdui-icon material-icons">{% if file.is_preserved %}bookmark{% else %}bookmark_border{% endif %}</i>
+                        </button>
+                    </form>
+                    {% if not current_space.is_readonly or session.is_admin %}
+                    <form method="POST" action="{{ url_for('delete_file', md5=file.md5) }}" style="display:inline;">
+                        <button type="submit" class="mdui-btn mdui-btn-icon mdui-text-color-red"
+                                onclick="return confirm('确定删除？')"
+                                mdui-tooltip="{content: '删除'}">
+                            <i class="mdui-icon material-icons">delete</i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <svg width="240" height="262" viewBox="0 0 960 1048" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="230" y="465" width="500" height="390" rx="18" fill="none" stroke="#cccccc" stroke-width="6"/>
+                    <rect x="410" y="530" width="140" height="10" rx="5" fill="#cccccc"/>
+                    <rect x="336" y="316" width="24" height="42" fill="#dd3333" transform="rotate(-60, 348, 337)"/>
+                    <rect x="468" y="208" width="24" height="42" fill="#dd3333" transform="rotate(0, 480, 229)"/>
+                    <rect x="600" y="316" width="24" height="42" fill="#dd3333" transform="rotate(60, 612, 337)"/>
+                    <circle cx="316" cy="424" r="9" fill="#cccccc"/>
+                    <circle cx="420" cy="248" r="11" fill="#cccccc"/>
+                    <circle cx="540" cy="248" r="11" fill="#cccccc"/>
+                    <circle cx="644" cy="424" r="9" fill="#cccccc"/>
+                </svg>
+                <p>暂无文件</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if not current_space.is_readonly or session.is_admin %}
+<button class="mdui-fab mdui-fab-fixed mdui-color-theme upload-btn" 
+        onclick="document.getElementById('fileInput').click()">
+    <i class="mdui-icon material-icons">upload_file</i>
+</button>
+<input type="file" id="fileInput" style="display:none;" onchange="uploadFile(this)">
+{% endif %}
+
+<script>
+function uploadFile(input) {
+    if (!input.files || !input.files[0]) return;
+    var file = input.files[0];
+    var formData = new FormData();
+    formData.append('file', file);
+    
+    mdui.snackbar({
+        message: '正在上传 ' + file.name + '...',
+        timeout: 0
+    });
+    
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '{{ url_for("upload") }}', true);
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            mdui.snackbar({ message: '上传成功', timeout: 2000 });
+            setTimeout(function() { location.reload(); }, 1000);
+        } else {
+            mdui.snackbar({ message: '上传失败', timeout: 3000 });
+        }
+    };
+    xhr.onerror = function() {
+        mdui.snackbar({ message: '上传失败，请重试', timeout: 3000 });
+    };
+    xhr.send(formData);
+    input.value = '';
+}
+
+function generateLink(md5) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/generate_link/' + md5, true);
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            var data = JSON.parse(xhr.responseText);
+            if (data.success) {
+                // 复制链接到剪贴板
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(data.link).then(function() {
+                        mdui.snackbar({ message: '直链已复制到剪贴板', timeout: 3000 });
+                    });
+                } else {
+                    mdui.snackbar({ message: '直链: ' + data.link, timeout: 5000 });
+                }
+            } else {
+                mdui.snackbar({ message: data.message || '生成失败', timeout: 3000 });
+            }
+        } else {
+            mdui.snackbar({ message: '生成失败，请重试', timeout: 3000 });
+        }
+    };
+    xhr.onerror = function() {
+        mdui.snackbar({ message: '网络错误，请重试', timeout: 3000 });
+    };
+    xhr.send();
+}
+
+function renameFile(md5, currentName) {
+    mdui.prompt('重命名文件', '请输入新文件名', function(newName) {
+        if (!newName || !newName.trim()) {
+            mdui.snackbar({ message: '文件名不能为空', timeout: 3000 });
+            return;
+        }
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/rename_file/' + md5;
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'new_name';
+        input.value = newName.trim();
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }, function() {}, currentName);
+}
+</script>
+{% endblock %}

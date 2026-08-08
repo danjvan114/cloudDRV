@@ -1,0 +1,443 @@
+{% extends "base_nobanner.html" %}
+
+{% block title %}我的账户 - CloudDrive{% endblock %}
+
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/css/mdui.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/js/mdui.min.js"></script>
+
+<style>
+body { margin: 0; padding: 0; background: #f5f5f5; }
+.account-toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 99;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    background: #1976d2;
+    color: #fff;
+}
+.account-toolbar a {
+    color: #fff;
+    text-decoration: none;
+}
+.account-toolbar .toolbar-title {
+    font-size: 20px;
+    font-weight: 500;
+    margin-left: 16px;
+}
+.account-toolbar .toolbar-spacer { flex: 1; }
+.account-content {
+    padding-top: 72px;
+    padding-bottom: 24px;
+    max-width: 960px;
+    margin: 0 auto;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+.info-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+.info-card-header {
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 500;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.info-card-body { padding: 16px; }
+.info-row {
+    display: flex;
+    padding: 12px 0;
+    border-bottom: 1px solid #f5f5f5;
+}
+.info-row:last-child { border-bottom: none; }
+.info-label { width: 100px; color: #666; font-size: 14px; }
+.info-value { flex: 1; font-size: 14px; }
+.storage-bar { height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden; }
+.storage-fill { height: 100%; background: #1976d2; transition: width 0.3s; }
+.space-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.space-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.2s;
+}
+.space-card.active { border-color: #1976d2; background: #e3f2fd; }
+.space-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.space-name { font-size: 14px; font-weight: 500; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
+.space-used { font-size: 12px; color: #666; margin-bottom: 4px; }
+.space-available { font-size: 12px; color: #4caf50; }
+.switch-btn {
+    margin-top: 8px;
+    padding: 6px 12px;
+    background: #1976d2;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    width: 100%;
+}
+.switch-btn:hover { opacity: 0.9; }
+.current-badge {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 4px 8px;
+    background: #4caf50;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 12px;
+}
+.pwd-tabs { display: flex; border-bottom: 2px solid #e0e0e0; margin-bottom: 16px; }
+.pwd-tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+}
+.pwd-tab.active { color: #1976d2; border-bottom-color: #1976d2; }
+.pwd-tab:hover { background: #f5f5f5; }
+.pwd-panel { display: none; }
+.pwd-panel.active { display: block; }
+.pwd-form .form-group { margin-bottom: 16px; }
+.pwd-form label { display: block; font-size: 13px; color: #666; margin-bottom: 6px; }
+.pwd-form input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.pwd-form input:focus { border-color: #1976d2; }
+.pwd-form .input-row { display: flex; gap: 8px; }
+.pwd-form .input-row input { flex: 1; }
+.pwd-form .send-code-btn {
+    padding: 10px 16px;
+    background: #1976d2;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    min-width: 100px;
+}
+.pwd-form .send-code-btn:disabled { background: #ccc; cursor: not-allowed; }
+.pwd-form .submit-btn {
+    width: 100%;
+    padding: 12px;
+    background: #1976d2;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 8px;
+}
+.pwd-form .submit-btn:hover { opacity: 0.9; }
+</style>
+
+<div class="account-toolbar">
+    <a class="mdui-ripple mdui-btn-icon" onclick="window.history.back()" style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;">
+        <i class="mdui-icon material-icons">arrow_back</i>
+    </a>
+    <span class="toolbar-title">用户中心</span>
+    <div class="toolbar-spacer"></div>
+</div>
+
+<div class="account-content">
+    <div class="info-card">
+        <div class="info-card-header">
+            <i class="mdui-icon material-icons" style="color:#1976d2;">person</i>
+            账户信息
+        </div>
+        <div class="info-card-body">
+            <div class="info-row">
+                <div class="info-label">用户名</div>
+                <div class="info-value">{{ user.username }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">邮箱</div>
+                <div class="info-value">{{ user.email }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">总存储</div>
+                <div class="info-value">{{ total_info.used }} / {{ total_info.max }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">总使用率</div>
+                <div class="info-value">
+                    <div class="storage-bar mb-1" style="margin-bottom:8px;">
+                        <div class="storage-fill" style="width: {{ total_info.percentage }}%"></div>
+                    </div>
+                    {{ total_info.percentage }}%
+                </div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">文件数量</div>
+                <div class="info-value">{{ user.files.count() }} 个</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="info-card">
+        <div class="info-card-header">
+            <i class="mdui-icon material-icons" style="color:#1976d2;">storage</i>
+            存储空间
+        </div>
+        <div class="info-card-body">
+            {% if spaces_info %}
+            <div class="space-grid">
+                {% for space in spaces_info %}
+                <div class="space-card {% if space.is_current %}active{% endif %}">
+                    <div class="space-name">
+                        {% if space.is_current %}
+                        <i class="mdui-icon material-icons" style="color:#4caf50;font-size:18px;">check_circle</i>
+                        {% endif %}
+                        {{ space.name }}
+                    </div>
+                    <div class="storage-bar mb-2" style="margin-bottom:8px;">
+                        <div class="storage-fill" style="width: {{ space.percentage }}%"></div>
+                    </div>
+                    <div class="space-used">已用：{{ space.used }}</div>
+                    <div class="space-available">可用：{{ space.available }}</div>
+                    {% if not space.is_current %}
+                    <form method="POST" action="{{ url_for('switch_space') }}">
+                        <input type="hidden" name="space_id" value="{{ space.id }}">
+                        <button type="submit" class="switch-btn">切换到此空间</button>
+                    </form>
+                    {% else %}
+                    <span class="current-badge">当前使用</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align:center;padding:32px;color:#999;">
+                <i class="mdui-icon material-icons" style="font-size:48px;opacity:0.3;">storage</i>
+                <p style="margin-top:8px;">暂无存储空间，请联系管理员</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="info-card">
+        <div class="info-card-header">
+            <i class="mdui-icon material-icons" style="color:#1976d2;">lock</i>
+            修改密码
+        </div>
+        <div class="info-card-body">
+            <div class="pwd-tabs">
+                <div class="pwd-tab active" onclick="switchPwdTab('oldpwd')">原密码验证</div>
+                <div class="pwd-tab" onclick="switchPwdTab('email')">邮箱验证</div>
+            </div>
+            
+            <div class="pwd-panel active" id="panel-oldpwd">
+                <div class="pwd-form">
+                    <div class="form-group">
+                        <label>原密码</label>
+                        <input type="password" id="oldPassword" placeholder="请输入原密码">
+                    </div>
+                    <div class="form-group">
+                        <label>新密码</label>
+                        <input type="password" id="newPassword1" placeholder="请输入新密码">
+                    </div>
+                    <div class="form-group">
+                        <label>确认新密码</label>
+                        <input type="password" id="newPassword2" placeholder="请再次输入新密码">
+                    </div>
+                    <button class="submit-btn" onclick="changePasswordByOld()">修改密码</button>
+                </div>
+            </div>
+            
+            <div class="pwd-panel" id="panel-email">
+                <div class="pwd-form">
+                    <div class="form-group">
+                        <label>邮箱验证码</label>
+                        <div class="input-row">
+                            <input type="text" id="emailCode" placeholder="请输入验证码" maxlength="6">
+                            <button class="send-code-btn" id="sendCodeBtn" onclick="sendVerifyCode()">发送验证码</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>新密码</label>
+                        <input type="password" id="emailNewPassword1" placeholder="请输入新密码">
+                    </div>
+                    <div class="form-group">
+                        <label>确认新密码</label>
+                        <input type="password" id="emailNewPassword2" placeholder="请再次输入新密码">
+                    </div>
+                    <button class="submit-btn" onclick="changePasswordByEmail()">修改密码</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchPwdTab(tab) {
+    document.querySelectorAll('.pwd-tab').forEach(function(el) { el.classList.remove('active'); });
+    document.querySelectorAll('.pwd-panel').forEach(function(el) { el.classList.remove('active'); });
+    if (tab === 'oldpwd') {
+        document.querySelectorAll('.pwd-tab')[0].classList.add('active');
+        document.getElementById('panel-oldpwd').classList.add('active');
+    } else {
+        document.querySelectorAll('.pwd-tab')[1].classList.add('active');
+        document.getElementById('panel-email').classList.add('active');
+    }
+}
+
+function sendVerifyCode() {
+    var btn = document.getElementById('sendCodeBtn');
+    btn.disabled = true;
+    btn.textContent = '发送中...';
+    
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '{{ url_for("send_pwd_code") }}', true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            var data = JSON.parse(xhr.responseText);
+            if (data.success) {
+                mdui.snackbar({ message: '验证码已发送到您的邮箱', timeout: 3000 });
+                var countdown = 60;
+                btn.textContent = countdown + 's';
+                var timer = setInterval(function() {
+                    countdown--;
+                    btn.textContent = countdown + 's';
+                    if (countdown <= 0) {
+                        clearInterval(timer);
+                        btn.disabled = false;
+                        btn.textContent = '发送验证码';
+                    }
+                }, 1000);
+            } else {
+                mdui.snackbar({ message: data.message || '发送失败', timeout: 3000 });
+                btn.disabled = false;
+                btn.textContent = '发送验证码';
+            }
+        } else {
+            mdui.snackbar({ message: '发送失败', timeout: 3000 });
+            btn.disabled = false;
+            btn.textContent = '发送验证码';
+        }
+    };
+    xhr.onerror = function() {
+        mdui.snackbar({ message: '网络错误', timeout: 3000 });
+        btn.disabled = false;
+        btn.textContent = '发送验证码';
+    };
+    xhr.send('');
+}
+
+function changePasswordByOld() {
+    var oldPwd = document.getElementById('oldPassword').value;
+    var newPwd1 = document.getElementById('newPassword1').value;
+    var newPwd2 = document.getElementById('newPassword2').value;
+    
+    if (!oldPwd || !newPwd1 || !newPwd2) {
+        mdui.snackbar({ message: '请填写完整信息', timeout: 3000 });
+        return;
+    }
+    if (newPwd1 !== newPwd2) {
+        mdui.snackbar({ message: '两次输入的密码不一致', timeout: 3000 });
+        return;
+    }
+    if (newPwd1.length < 6) {
+        mdui.snackbar({ message: '密码长度不能少于6位', timeout: 3000 });
+        return;
+    }
+    
+    var formData = new FormData();
+    formData.append('old_password', oldPwd);
+    formData.append('new_password', newPwd1);
+    
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '{{ url_for("change_pwd_old") }}', true);
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            var data = JSON.parse(xhr.responseText);
+            if (data.success) {
+                mdui.snackbar({ message: '密码修改成功', timeout: 2000 });
+                document.getElementById('oldPassword').value = '';
+                document.getElementById('newPassword1').value = '';
+                document.getElementById('newPassword2').value = '';
+            } else {
+                mdui.snackbar({ message: data.message || '修改失败', timeout: 3000 });
+            }
+        } else {
+            mdui.snackbar({ message: '修改失败', timeout: 3000 });
+        }
+    };
+    xhr.onerror = function() {
+        mdui.snackbar({ message: '网络错误', timeout: 3000 });
+    };
+    xhr.send(formData);
+}
+
+function changePasswordByEmail() {
+    var code = document.getElementById('emailCode').value;
+    var newPwd1 = document.getElementById('emailNewPassword1').value;
+    var newPwd2 = document.getElementById('emailNewPassword2').value;
+    
+    if (!code || !newPwd1 || !newPwd2) {
+        mdui.snackbar({ message: '请填写完整信息', timeout: 3000 });
+        return;
+    }
+    if (newPwd1 !== newPwd2) {
+        mdui.snackbar({ message: '两次输入的密码不一致', timeout: 3000 });
+        return;
+    }
+    if (newPwd1.length < 6) {
+        mdui.snackbar({ message: '密码长度不能少于6位', timeout: 3000 });
+        return;
+    }
+    
+    var formData = new FormData();
+    formData.append('code', code);
+    formData.append('new_password', newPwd1);
+    
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '{{ url_for("change_pwd_email") }}', true);
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            var data = JSON.parse(xhr.responseText);
+            if (data.success) {
+                mdui.snackbar({ message: '密码修改成功', timeout: 2000 });
+                document.getElementById('emailCode').value = '';
+                document.getElementById('emailNewPassword1').value = '';
+                document.getElementById('emailNewPassword2').value = '';
+            } else {
+                mdui.snackbar({ message: data.message || '修改失败', timeout: 3000 });
+            }
+        } else {
+            mdui.snackbar({ message: '修改失败', timeout: 3000 });
+        }
+    };
+    xhr.onerror = function() {
+        mdui.snackbar({ message: '网络错误', timeout: 3000 });
+    };
+    xhr.send(formData);
+}
+</script>
+{% endblock %}
