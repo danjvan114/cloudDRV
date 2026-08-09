@@ -402,8 +402,9 @@ def register_auth_routes():
         return 'Not Found', 404
 
     # 处理 webpack chunk 加载的 /static/ 路径（从 player 的 static 目录提供）
-    @app.route('/static/<path:filename>')
-    def player_chunk_static(filename):
+    # 命名为 'static' 以兼容 url_for('static', ...)
+    @app.route('/static/<path:filename>', endpoint='static')
+    def static_file(filename):
         import mimetypes
         # 优先从 player 的 static 目录查找
         kn_dir = os.path.join(BASE_DIR, 'knplayer', 'CUE-Player', 'kn', 'static')
