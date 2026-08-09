@@ -121,6 +121,8 @@
         <h2 class="login-title">注册新账号</h2>
 
         <form method="POST">
+            <input type="hidden" name="backurl" value="{{ backurl }}">
+            <input type="hidden" name="uuid" value="{{ uuid }}">
             <!-- 用户名 -->
             <div style="margin-bottom:28px;">
                 <label style="display:inline-flex;align-items:center;gap:5px;margin-bottom:8px;">

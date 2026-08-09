@@ -4,7 +4,7 @@ import shutil
 from flask import request, jsonify, render_template, redirect, url_for, flash, send_file, session
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from libs.config import app, db, User, FileRecord, StorageSpace, UserSpace, STORAGE_ROOTS, EmailVerification, ADMIN_REVOKE_PASSWORD
+from libs.config import app, db, User, FileRecord, StorageSpace, UserSpace, STORAGE_ROOTS, EmailVerification, ADMIN_REVOKE_PASSWORD, AuthCallback
 from libs.utils import (
     send_verification_email, create_verification, verify_code,
     format_file_size, get_space_storage_info, get_user_total_storage_info,
@@ -46,37 +46,41 @@ def register_auth_routes():
     @app.route('/register', methods=['GET', 'POST'])
     def register():
         if request.method == 'GET':
-            return render_template('register.html')
+            return render_template('register.html',
+                                   backurl=request.args.get('backurl', ''),
+                                   uuid=request.args.get('uuid', ''))
 
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         verification_code = request.form.get('verification_code')
+        backurl = request.form.get('backurl', '')
+        uuid = request.form.get('uuid', '')
 
         if not all([username, email, password, confirm_password, verification_code]):
             flash('请填写完整信息')
-            return redirect(url_for('register'))
+            return redirect(url_for('register', backurl=backurl, uuid=uuid))
 
         if not username.isascii() or not username.replace('_', '').replace('-', '').replace('.', '').isalnum():
             flash('用户名只能包含英文字母、数字、下划线、连字符和点')
-            return redirect(url_for('register'))
+            return redirect(url_for('register', backurl=backurl, uuid=uuid))
 
         if password != confirm_password:
             flash('两次密码不一致')
-            return redirect(url_for('register'))
+            return redirect(url_for('register', backurl=backurl, uuid=uuid))
 
         if User.query.filter_by(username=username).first():
             flash('用户名已存在')
-            return redirect(url_for('register'))
+            return redirect(url_for('register', backurl=backurl, uuid=uuid))
 
         if User.query.filter_by(email=email).first():
             flash('邮箱已被注册')
-            return redirect(url_for('register'))
+            return redirect(url_for('register', backurl=backurl, uuid=uuid))
 
         if not verify_code(email, verification_code):
             flash('验证码错误或已过期')
-            return redirect(url_for('register'))
+            return redirect(url_for('register', backurl=backurl, uuid=uuid))
 
         user = User(username=username, email=email, is_verified=True)
         user.set_password(password)
@@ -110,6 +114,8 @@ def register_auth_routes():
         db.session.commit()
 
         flash('注册成功，请登录')
+        if uuid and backurl:
+            return redirect(url_for('login', uuid=uuid, backurl=backurl))
         return redirect(url_for('login'))
 
     @app.route('/send_code', methods=['POST'])
@@ -141,25 +147,98 @@ def register_auth_routes():
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         if request.method == 'GET':
-            return render_template('login.html')
+            return render_template('login.html',
+                                   backurl=request.args.get('backurl', ''),
+                                   uuid=request.args.get('uuid', ''))
 
         username = request.form.get('username')
         password = request.form.get('password')
+        backurl = request.form.get('backurl', '')
+        uuid = request.form.get('uuid', '')
 
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
             session['user_id'] = user.id
             session['username'] = user.username
             session['is_admin'] = user.is_admin
+
+            # 如果有回调参数，跳转到确认授权页面
+            if uuid and backurl:
+                callback = AuthCallback.query.filter_by(uuid=uuid).first()
+                if callback:
+                    callback.user_id = user.id
+                    db.session.commit()
+                    return redirect(url_for('auth_confirm', uuid=uuid, backurl=backurl))
+
             return redirect(url_for('index'))
         else:
             flash('用户名或密码错误')
-            return redirect(url_for('login'))
+            return redirect(url_for('login', backurl=backurl, uuid=uuid))
 
     @app.route('/logout')
     def logout():
         session.clear()
         return redirect(url_for('login'))
+
+    # ===== 第三方应用回调认证 =====
+    @app.route('/auth/callback')
+    def auth_callback():
+        """第三方应用发起回调，生成 uuid 并记录 backurl"""
+        import uuid as uuid_mod
+        backurl = request.args.get('backurl', '')
+        if not backurl:
+            return jsonify({'error': '缺少 backurl 参数'}), 400
+        uid = uuid_mod.uuid4().hex
+        callback = AuthCallback(uuid=uid, backurl=backurl)
+        db.session.add(callback)
+        db.session.commit()
+        # 跳转到登录页，带上 uuid 和 backurl
+        return redirect(url_for('login', uuid=uid, backurl=backurl))
+
+    @app.route('/auth/confirm')
+    def auth_confirm():
+        """用户登录成功后，确认授权页面"""
+        uuid_val = request.args.get('uuid', '')
+        backurl = request.args.get('backurl', '')
+        if 'user_id' not in session:
+            return redirect(url_for('login', uuid=uuid_val, backurl=backurl))
+        callback = AuthCallback.query.filter_by(uuid=uuid_val).first()
+        if not callback:
+            flash('回调记录不存在')
+            return redirect(url_for('index'))
+        return render_template('auth_confirm.html', uuid=uuid_val, backurl=backurl, username=session.get('username', ''))
+
+    @app.route('/auth/confirm', methods=['POST'])
+    def auth_confirm_post():
+        """用户确认授权"""
+        uuid_val = request.form.get('uuid', '')
+        backurl = request.form.get('backurl', '')
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        import uuid as uuid_mod
+        import secrets
+        callback = AuthCallback.query.filter_by(uuid=uuid_val).first()
+        if not callback:
+            flash('回调记录不存在')
+            return redirect(url_for('index'))
+        # 生成密钥
+        secret_key = secrets.token_hex(16)
+        callback.user_id = session['user_id']
+        callback.secret_key = secret_key
+        callback.is_confirmed = True
+        db.session.commit()
+        # 跳转回第三方应用
+        separator = '&' if '?' in backurl else '?'
+        return redirect(f"{backurl}{separator}uuid={uuid_val}")
+
+    @app.route('/api/auth')
+    def api_auth():
+        """第三方应用通过 uuid 获取密钥"""
+        uuid_val = request.args.get('uuid', '')
+        callback = AuthCallback.query.filter_by(uuid=uuid_val, is_confirmed=True).first()
+        if not callback:
+            return jsonify({'error': '未找到已确认的授权记录'}), 404
+        return jsonify({'uuid': callback.uuid, 'secret_key': callback.secret_key, 'user_id': callback.user_id})
 
 
 def register_file_routes():

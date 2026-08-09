@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 from werkzeug.security import generate_password_hash
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -14,6 +15,7 @@ app = Flask(
     template_folder=os.path.join(BASE_DIR, 'templates'),
     static_folder=os.path.join(BASE_DIR, 'static')
 )
+CORS(app)
 app.config['SECRET_KEY'] = 'cloud-drive-secret-key-2024'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///clouddrive.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -121,3 +123,15 @@ class EmailVerification(db.Model):
     purpose = db.Column(db.String(20), default='register')  # register / pwd_reset
     created_at = db.Column(db.DateTime, default=datetime.now)
     is_used = db.Column(db.Boolean, default=False)
+
+
+class AuthCallback(db.Model):
+    """第三方应用回调认证"""
+    __tablename__ = 'auth_callback'
+    id = db.Column(db.Integer, primary_key=True)
+    uuid = db.Column(db.String(64), unique=True, nullable=False)
+    backurl = db.Column(db.String(500), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    secret_key = db.Column(db.String(64), nullable=True)
+    is_confirmed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)

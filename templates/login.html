@@ -144,7 +144,9 @@
                 <span id="displayName"></span>
             </div>
             <form method="POST" id="loginForm">
-                <input type="hidden" name="username" id="hiddenUsername">
+            <input type="hidden" name="backurl" value="{{ backurl }}">
+            <input type="hidden" name="uuid" value="{{ uuid }}">
+            <input type="hidden" name="username" id="hiddenUsername">
                 <div style="margin-bottom:28px;">
                     <label style="display:inline-flex;align-items:center;gap:5px;margin-bottom:8px;">
                         <i class="mdui-icon material-icons">lock</i>密码
