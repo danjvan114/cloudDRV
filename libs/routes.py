@@ -419,18 +419,6 @@ def register_auth_routes():
             return send_file(file_path, mimetype=mime_type)
         return 'Not Found', 404
 
-    @app.route('/player/manifest.json')
-    def player_manifest():
-        return jsonify({
-            "short_name": "Neko",
-            "name": "Codemao Neko",
-            "icons": [],
-            "start_url": ".",
-            "display": "standalone",
-            "theme_color": "#000000",
-            "background_color": "#ffffff"
-        })
-
     @app.route('/proxy/<path:hostname>/<path:rest>')
     def proxy_request(hostname, rest):
         """代理请求到 codemao.cn"""
