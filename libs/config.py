@@ -13,7 +13,7 @@ ADMIN_REVOKE_PASSWORD = '36619778'
 app = Flask(
     __name__,
     template_folder=os.path.join(BASE_DIR, 'templates'),
-    static_folder=os.path.join(BASE_DIR, 'static')
+    static_folder=None
 )
 CORS(app)
 app.config['SECRET_KEY'] = 'cloud-drive-secret-key-2024'

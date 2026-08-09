@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1" />
+    <meta name="environment" content="production" />
+    <link rel="shortcut icon" href="/player/icon.ico" />
+    <link rel="manifest" href="/player/manifest.json" />
+    <title>CUE Player - KN</title>
+    <script>
+        // 定义播放器所需的全局变量
+        window.__IS_MOBILE__ = navigator.userAgent.match(/(iPhone|iPod|Android|ios|iOS|iPad|WebOS|Symbian|Windows Phone|Phone)/i) || /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints && navigator.maxTouchPoints > 1;
+        window.__IS_PC__ = !window.__IS_MOBILE__;
+        window.__IS_MINIPROGRAM__ = "miniprogram" === window.__wxjs_environment || /miniProgram/i.test(navigator.userAgent);
+        window.__SHOW_SDK_LOG__ = false;
+        window.__SHOW_JUDGE_BLOCK_MESSAGE__ = false;
+        window.__SDK_INITIALIZED__ = false;
+        window.__PAD_ZOOM__ = 1;
+        window.__KIDS_ZOOM__ = 1.1;
+        window.__NEKO_TIME_OBJ__ = { nekoInitTime: Date.now() };
+
+        // 拦截 DOM 操作，将 /static/ 路径重写为 /player/static/
+        // 1. 重写 HTMLScriptElement.prototype.src setter
+        try {
+            const desc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src');
+            if (desc && desc.set) {
+                Object.defineProperty(HTMLScriptElement.prototype, 'src', {
+                    configurable: true,
+                    get: desc.get,
+                    set: function(v) {
+                        if (typeof v === 'string' && v.includes('/static/') && !v.includes('/player/')) {
+                            v = v.replace('/static/', '/player/static/');
+                        }
+                        return desc.set.call(this, v);
+                    }
+                });
+            }
+        } catch(_) {}
+
+        // 2. 重写 HTMLLinkElement.prototype.href setter
+        try {
+            const desc = Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, 'href');
+            if (desc && desc.set) {
+                Object.defineProperty(HTMLLinkElement.prototype, 'href', {
+                    configurable: true,
+                    get: desc.get,
+                    set: function(v) {
+                        if (typeof v === 'string' && v.includes('/static/') && !v.includes('/player/')) {
+                            v = v.replace('/static/', '/player/static/');
+                        }
+                        return desc.set.call(this, v);
+                    }
+                });
+            }
+        } catch(_) {}
+
+        // 3. 拦截 setAttribute
+        const _origSetAttr = Element.prototype.setAttribute;
+        Element.prototype.setAttribute = function(name, value) {
+            if (this.tagName === 'SCRIPT' && name === 'src' && typeof value === 'string' && value.includes('/static/') && !value.includes('/player/')) {
+                value = value.replace('/static/', '/player/static/');
+            }
+            if (this.tagName === 'LINK' && name === 'href' && typeof value === 'string' && value.includes('/static/') && !value.includes('/player/')) {
+                value = value.replace('/static/', '/player/static/');
+            }
+            return _origSetAttr.call(this, name, value);
+        };
+
+        // 4. 拦截 appendChild
+        const _origAppendChild = Node.prototype.appendChild;
+        Node.prototype.appendChild = function(node) {
+            if (node && node.tagName === 'SCRIPT' && node.src && node.src.includes('/static/') && !node.src.includes('/player/')) {
+                node.src = node.src.replace('/static/', '/player/static/');
+            }
+            return _origAppendChild.call(this, node);
+        };
+
+        // 5. 拦截 append
+        const _origAppend = Element.prototype.append;
+        if (_origAppend) {
+            Element.prototype.append = function(...nodes) {
+                nodes.forEach(n => {
+                    if (n && n.tagName === 'SCRIPT' && n.src && n.src.includes('/static/') && !n.src.includes('/player/')) {
+                        n.src = n.src.replace('/static/', '/player/static/');
+                    }
+                });
+                return _origAppend.apply(this, nodes);
+            };
+        }
+    </script>
+    <script>
+    (function () {
+        'use strict';
+        const DEBUG = true;
+        function log(...args) { if (DEBUG) console.log('[Hijack]', ...args); }
+
+        // 读取 ?file= 参数
+        let fileUrl = '';
+        try {
+            fileUrl = new URLSearchParams(location.search).get('file') || '';
+        } catch (_) { }
+
+        const HIJACK_PATTERN = /creation\.bcmcdn\.com\/922\/user-files\/[^/]+\.bcmkn/;
+
+        // 作品详情 API 劫持：拦截 /neko/works/player/work-detail/* 请求（匹配任意 ID）
+        const WORK_DETAIL_PATTERN = /\/neko\/works\/player\/work-detail\/\d+/;
+
+        // 用户资料 API 劫持
+        const PROFILE_PATTERN = /\/tiger\/v3\/web\/accounts\/profile/;
+
+        // manifest.json 劫持
+        const MANIFEST_PATTERN = /\/manifest\.json$/;
+
+        function applyHijackRules(url) {
+            if (typeof url !== 'string') return url;
+            // 劫持作品详情 API
+            if (WORK_DETAIL_PATTERN.test(url) && fileUrl) {
+                log('API 劫持:', url, '→ 返回伪造作品详情');
+                return 'data:application/json,' + encodeURIComponent(JSON.stringify({
+                    work_id: 322407874,
+                    name: "播放器",
+                    user_id: 1716297772,
+                    work_url: fileUrl,
+                    bcm_version: "0.27.2",
+                    work_type: 15,
+                    preview_url: "https://creation.bcmcdn.com/922/user-files/d2ViXzIwMDJfMTcxNjI5Nzc3Ml8zMjI0MDc4NzRfMTc4NDE2MzYwMDAwMF9GZzhvQl8wR3gwUlJyT25XdTRyTFR1b3BYZnhl.jpeg",
+                    update_time: 1784164681,
+                    create_time: 1783819708,
+                    work_classify: 0,
+                    code: "",
+                    invte_url: "",
+                    invite_url_updated_at: 0,
+                    if_shared: 2,
+                    stage_type: 2,
+                    published_status: 0,
+                    hardware_mode: 1,
+                    blink_mode: "",
+                    fork_enable: 0,
+                    check_result: 1,
+                    if_default_cover: 1,
+                    has_display_check_result: 1,
+                    include_ai_resource: 0,
+                    work_js_url: ""
+                }));
+            }
+            // 劫持用户资料 API
+            if (PROFILE_PATTERN.test(url)) {
+                log('API 劫持:', url, '→ 返回伪造用户资料');
+                return 'data:application/json,' + encodeURIComponent(JSON.stringify({
+                    id: 1716297772,
+                    nickname: "danjvan",
+                    avatar_url: "https://creation.bcmcdn.com//490/YW5kXzEwMDFfMTcxNjI5Nzc3Ml8wXzE3NTMyMzgwNTc2OTdfRHZsOXNlVlc=.jpg",
+                    fullname: "",
+                    sex: 1,
+                    birthday: 0,
+                    qq: "269******",
+                    description: "接广，求开源，好奇，交朋友请加QQ2690180230",
+                    grade: 0,
+                    programmingBasics: 0,
+                    robotBasics: 0,
+                    operatingSystem: [],
+                    parentalExpectation: [],
+                    parentalExpectationInput: "",
+                    grade_desc: "未选择"
+                }));
+            }
+            // 劫持 manifest.json
+            if (MANIFEST_PATTERN.test(url)) {
+                log('manifest 劫持:', url, '→ 返回伪造 manifest');
+                return 'data:application/json,' + encodeURIComponent(JSON.stringify({
+                    short_name: "Neko",
+                    name: "Codemao Neko",
+                    icons: [],
+                    start_url: ".",
+                    display: "standalone",
+                    theme_color: "#000000",
+                    background_color: "#ffffff"
+                }));
+            }
+            return url;
+        }
+
+        log('已加载，劫持模式:', HIJACK_PATTERN.toString(), '替换目标:', fileUrl || '(未设置)');
+
+        const bannerStyle = 'background:linear-gradient(90deg,#7c3aed,#2563eb);color:#fff;padding:4px 8px;border-radius:4px;font-weight:bold;';
+        const infoStyle = 'color:#2563eb;font-weight:bold;';
+        const warnStyle = 'color:#d97706;font-weight:bold;';
+        const okStyle = 'color:#16a34a;font-weight:bold;';
+        const dimStyle = 'color:#6b7280;';
+
+        console.log('%c[CUE Hijack] 劫持器已加载', bannerStyle);
+        console.log(
+            '%c当前页面: %c' + location.href +
+            '%c | file: %c' + (fileUrl || '(无)') +
+            '%c | 劫持模式: %c' + (fileUrl ? 'file直链+API伪造' : '默认') +
+            '%c | 替换目标: %c' + (fileUrl || '(未设置)'),
+            infoStyle, dimStyle,
+            infoStyle, fileUrl ? okStyle : warnStyle,
+            infoStyle, okStyle,
+            infoStyle, okStyle
+        );
+
+        // 劫持 fetch
+        const originalFetch = window.fetch;
+        window.fetch = function (input, init) {
+            let url = (typeof input === 'string') ? input : (input instanceof Request) ? input.url : String(input);
+            const ruledUrl = applyHijackRules(url);
+            if (ruledUrl !== url) {
+                log('fetch API劫持:', url, '→', ruledUrl);
+                if (typeof input === 'string') return originalFetch.call(this, ruledUrl, init);
+                else return originalFetch.call(this, new Request(ruledUrl, init || input), init);
+            }
+            if (HIJACK_PATTERN.test(url) && fileUrl) {
+                log('fetch bcmkn拦截:', url, '→', fileUrl);
+                if (typeof input === 'string') return originalFetch.call(this, fileUrl, init);
+                else return originalFetch.call(this, new Request(fileUrl, init || input), init);
+            }
+            return originalFetch.call(this, input, init);
+        };
+
+        // 劫持 XMLHttpRequest
+        const originalOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+            if (typeof url === 'string') {
+                const ruledUrl = applyHijackRules(url);
+                if (ruledUrl !== url) {
+                    log('XHR API劫持:', url, '→', ruledUrl);
+                    url = ruledUrl;
+                } else if (HIJACK_PATTERN.test(url) && fileUrl) {
+                    log('XHR bcmkn拦截:', url, '→', fileUrl);
+                    url = fileUrl;
+                }
+            }
+            return originalOpen.call(this, method, url, ...rest);
+        };
+
+        // 劫持 img src
+        function hijackElement(el) {
+            try {
+                if (el.tagName === 'IMG' && el.src) {
+                    const newUrl = applyHijackRules(el.src);
+                    if (newUrl !== el.src) { log('img src 拦截:', el.src, '→', newUrl); el.src = newUrl; }
+                }
+                if (el.srcset) {
+                    const newSrcset = applyHijackRules(el.srcset);
+                    if (newSrcset !== el.srcset) el.srcset = newSrcset;
+                }
+                if (el.style && el.style.backgroundImage) {
+                    const bg = el.style.backgroundImage;
+                    const newBg = applyHijackRules(bg);
+                    if (newBg !== bg) { log('bg 拦截:', bg, '→', newBg); el.style.backgroundImage = newBg; }
+                }
+            } catch (_) { }
+        }
+
+        try {
+            const imgSrcDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+            if (imgSrcDesc && imgSrcDesc.set) {
+                Object.defineProperty(HTMLImageElement.prototype, 'src', {
+                    ...imgSrcDesc,
+                    set(value) {
+                        const newValue = applyHijackRules(String(value));
+                        return imgSrcDesc.set.call(this, newValue);
+                    }
+                });
+            }
+        } catch (_) { }
+
+        function scanAll() {
+            try { document.querySelectorAll('img, [style*="background"], [style*="url("]').forEach(hijackElement); } catch (_) { }
+        }
+
+        function setupObserver() {
+            if (!document.documentElement) { setTimeout(setupObserver, 50); return; }
+            const observer = new MutationObserver(mutations => {
+                for (const m of mutations) {
+                    m.addedNodes.forEach(node => {
+                        if (node.nodeType === 1) {
+                            hijackElement(node);
+                            if (node.querySelectorAll) node.querySelectorAll('img, [style*="background"], [style*="url("]').forEach(hijackElement);
+                        }
+                    });
+                    if (m.type === 'attributes' && m.target && m.target.nodeType === 1) hijackElement(m.target);
+                }
+            });
+            observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'srcset', 'style'] });
+            scanAll();
+        }
+        setupObserver();
+    })();
+    </script>
+    <script>
+        // 重写 fetch 和 XMLHttpRequest 以代理 codemao.cn 请求
+        const _originalFetch = window.fetch;
+        window.fetch = function (input, init) {
+            if (typeof input === 'string' && input.includes('.codemao.cn')) {
+                try {
+                    const parsed = new URL(input);
+                    input = `/proxy/${parsed.hostname}${parsed.pathname}${parsed.search}`;
+                } catch (e) { }
+            } else if (input instanceof Request) {
+                const reqUrl = input.url;
+                if (typeof reqUrl === 'string' && reqUrl.includes('.codemao.cn')) {
+                    try {
+                        const parsed = new URL(reqUrl);
+                        const newUrl = `/proxy/${parsed.hostname}${parsed.pathname}${parsed.search}`;
+                        const newInit = { ...init, ...input };
+                        return _originalFetch.call(this, new Request(newUrl, newInit), init);
+                    } catch (e) { }
+                }
+            }
+            return _originalFetch.call(this, input, init);
+        };
+        const _originalOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method, url) {
+            const args = Array.from(arguments);
+            if (typeof url === 'string' && url.includes('.codemao.cn')) {
+                try {
+                    const parsed = new URL(url);
+                    args[1] = `/proxy/${parsed.hostname}${parsed.pathname}${parsed.search}`;
+                } catch (e) { }
+            }
+            return _originalOpen.apply(this, args);
+        };
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+    <script src="/player/static/js/main.b25e1c31.js"></script>
+    <link href="/player/static/css/main.003bb219.css" rel="stylesheet">
+</body>
+</html>

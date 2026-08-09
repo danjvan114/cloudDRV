@@ -4,7 +4,7 @@ import shutil
 from flask import request, jsonify, render_template, redirect, url_for, flash, send_file, session
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from libs.config import app, db, User, FileRecord, StorageSpace, UserSpace, STORAGE_ROOTS, EmailVerification, ADMIN_REVOKE_PASSWORD, AuthCallback
+from libs.config import app, db, User, FileRecord, StorageSpace, UserSpace, STORAGE_ROOTS, EmailVerification, ADMIN_REVOKE_PASSWORD, AuthCallback, BASE_DIR
 from libs.utils import (
     send_verification_email, create_verification, verify_code,
     format_file_size, get_space_storage_info, get_user_total_storage_info,
@@ -239,6 +239,229 @@ def register_auth_routes():
         if not callback:
             return jsonify({'error': '未找到已确认的授权记录'}), 404
         return jsonify({'uuid': callback.uuid, 'secret_key': callback.secret_key, 'user_id': callback.user_id})
+
+    # ===== CUE Player =====
+    @app.route('/player')
+    def player():
+        kn_dir = os.path.join(BASE_DIR, 'knplayer', 'CUE-Player', 'kn')
+        index_path = os.path.join(kn_dir, 'index.html')
+        with open(index_path, 'r', encoding='utf-8') as f:
+            html = f.read()
+
+        # 移除原有的 proxy 脚本（避免覆盖我们的劫持）
+        import re
+        # 移除从 "const originalFetch = window.fetch;" 到 "return originalOpen.apply(this, args);" 的 proxy 脚本
+        html = re.sub(
+            r'const originalFetch = window\.fetch;[\s\S]*?return originalOpen\.apply\(this, args\);',
+            '// proxy script removed - handled by hijack script',
+            html
+        )
+
+        # 注入劫持脚本（在 </head> 之前）
+        hijack_script = '''
+    <script>
+    (function () {
+        'use strict';
+        const DEBUG = true;
+        function log(...args) { if (DEBUG) console.log('[Hijack]', ...args); }
+
+        let fileUrl = '';
+        try { fileUrl = new URLSearchParams(location.search).get('file') || ''; } catch (_) { }
+
+        const HIJACK_PATTERN = /creation\\.bcmcdn\\.com\\/922\\/user-files\\/[^/]+\\.bcmkn/;
+        const WORK_DETAIL_PATTERN = /\\/neko\\/works\\/player\\/work-detail\\/\\d+/;
+        const PROFILE_PATTERN = /\\/tiger\\/v3\\/web\\/accounts\\/profile/;
+        const MANIFEST_PATTERN = /\\/manifest\\.json$/;
+
+        function applyHijackRules(url) {
+            if (typeof url !== 'string') return url;
+            if (WORK_DETAIL_PATTERN.test(url) && fileUrl) {
+                log('API劫持:', url, '→ 伪造作品详情');
+                return 'data:application/json,' + encodeURIComponent(JSON.stringify({
+                    work_id: 322407874, name: "播放器", user_id: 1716297772,
+                    work_url: fileUrl, bcm_version: "0.27.2", work_type: 15,
+                    preview_url: "https://creation.bcmcdn.com/922/user-files/d2ViXzIwMDJfMTcxNjI5Nzc3Ml8zMjI0MDc4NzRfMTc4NDE2MzYwMDAwMF9GZzhvQl8wR3gwUlJyT25XdTRyTFR1b3BYZnhl.jpeg",
+                    update_time: 1784164681, create_time: 1783819708, work_classify: 0,
+                    code: "", invte_url: "", invite_url_updated_at: 0, if_shared: 2,
+                    stage_type: 2, published_status: 0, hardware_mode: 1, blink_mode: "",
+                    fork_enable: 0, check_result: 1, if_default_cover: 1,
+                    has_display_check_result: 1, include_ai_resource: 0, work_js_url: ""
+                }));
+            }
+            if (PROFILE_PATTERN.test(url)) {
+                log('API劫持:', url, '→ 伪造用户资料');
+                return 'data:application/json,' + encodeURIComponent(JSON.stringify({
+                    id: 1716297772, nickname: "danjvan",
+                    avatar_url: "https://creation.bcmcdn.com//490/YW5kXzEwMDFfMTcxNjI5Nzc3Ml8wXzE3NTMyMzgwNTc2OTdfRHZsOXNlVlc=.jpg",
+                    fullname: "", sex: 1, birthday: 0, qq: "269******",
+                    description: "接广，求开源，好奇，交朋友请加QQ2690180230",
+                    grade: 0, programmingBasics: 0, robotBasics: 0,
+                    operatingSystem: [], parentalExpectation: [], parentalExpectationInput: "", grade_desc: "未选择"
+                }));
+            }
+            if (MANIFEST_PATTERN.test(url)) {
+                log('manifest劫持:', url);
+                return 'data:application/json,' + encodeURIComponent(JSON.stringify({
+                    short_name: "Neko", name: "Codemao Neko", icons: [],
+                    start_url: ".", display: "standalone", theme_color: "#000000", background_color: "#ffffff"
+                }));
+            }
+            return url;
+        }
+
+        log('已加载, file=', fileUrl || '(无)');
+
+        // 劫持 fetch：先检查劫持规则，再走 proxy
+        const _fetch = window.fetch;
+        window.fetch = function (input, init) {
+            let url = (typeof input === 'string') ? input : (input instanceof Request) ? input.url : String(input);
+            const ruled = applyHijackRules(url);
+            if (ruled !== url) {
+                log('fetch劫持:', url, '→', ruled);
+                if (typeof input === 'string') return _fetch.call(this, ruled, init);
+                else return _fetch.call(this, new Request(ruled, init || input), init);
+            }
+            if (HIJACK_PATTERN.test(url) && fileUrl) {
+                log('bcmkn劫持:', url, '→', fileUrl);
+                if (typeof input === 'string') return _fetch.call(this, fileUrl, init);
+                else return _fetch.call(this, new Request(fileUrl, init || input), init);
+            }
+            // 其他 codemao.cn 请求走 proxy
+            if (typeof input === 'string' && input.includes('.codemao.cn')) {
+                try {
+                    const parsed = new URL(input);
+                    input = `/proxy/${parsed.hostname}${parsed.pathname}${parsed.search}`;
+                } catch (e) { }
+            } else if (input instanceof Request) {
+                const reqUrl = input.url;
+                if (typeof reqUrl === 'string' && reqUrl.includes('.codemao.cn')) {
+                    try {
+                        const parsed = new URL(reqUrl);
+                        const newUrl = `/proxy/${parsed.hostname}${parsed.pathname}${parsed.search}`;
+                        const newInit = { ...init, ...input };
+                        return _fetch.call(this, new Request(newUrl, newInit), init);
+                    } catch (e) { }
+                }
+            }
+            return _fetch.call(this, input, init);
+        };
+
+        // 劫持 XHR：先检查劫持规则，再走 proxy
+        const _open = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+            if (typeof url === 'string') {
+                const ruled = applyHijackRules(url);
+                if (ruled !== url) { log('XHR劫持:', url, '→', ruled); url = ruled; }
+                else if (HIJACK_PATTERN.test(url) && fileUrl) { log('bcmkn劫持:', url, '→', fileUrl); url = fileUrl; }
+                else if (url.includes('.codemao.cn')) {
+                    try {
+                        const parsed = new URL(url);
+                        url = `/proxy/${parsed.hostname}${parsed.pathname}${parsed.search}`;
+                    } catch (e) { }
+                }
+            }
+            return _open.call(this, method, url, ...rest);
+        };
+    })();
+    </script>
+'''
+        html = html.replace('</head>', hijack_script + '\n</head>')
+        return html
+
+    @app.route('/manifest.json')
+    def player_manifest():
+        return jsonify({
+            "short_name": "Neko",
+            "name": "Codemao Neko",
+            "icons": [],
+            "start_url": ".",
+            "display": "standalone",
+            "theme_color": "#000000",
+            "background_color": "#ffffff"
+        })
+
+    @app.route('/policy/<filename>')
+    def policy_page(filename):
+        if filename not in ('ys.md', 'user.md'):
+            return 'Not Found', 404
+        md_path = os.path.join(BASE_DIR, 'static', filename)
+        if not os.path.isfile(md_path):
+            return 'Not Found', 404
+        with open(md_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return render_template('policy.html', title=filename.replace('.md', ''), content=content)
+
+    @app.route('/player/<path:filename>')
+    def player_static(filename):
+        import mimetypes
+        kn_dir = os.path.join(BASE_DIR, 'knplayer', 'CUE-Player', 'kn')
+        file_path = os.path.join(kn_dir, filename)
+        if os.path.isfile(file_path):
+            mime_type, _ = mimetypes.guess_type(file_path)
+            return send_file(file_path, mimetype=mime_type)
+        return 'Not Found', 404
+
+    # 处理 webpack chunk 加载的 /static/ 路径（从 player 的 static 目录提供）
+    @app.route('/static/<path:filename>')
+    def player_chunk_static(filename):
+        import mimetypes
+        # 优先从 player 的 static 目录查找
+        kn_dir = os.path.join(BASE_DIR, 'knplayer', 'CUE-Player', 'kn', 'static')
+        file_path = os.path.join(kn_dir, filename)
+        if os.path.isfile(file_path):
+            mime_type, _ = mimetypes.guess_type(file_path)
+            return send_file(file_path, mimetype=mime_type)
+        # 其次从项目 static 目录查找
+        proj_static = os.path.join(BASE_DIR, 'static')
+        file_path = os.path.join(proj_static, filename)
+        if os.path.isfile(file_path):
+            mime_type, _ = mimetypes.guess_type(file_path)
+            return send_file(file_path, mimetype=mime_type)
+        return 'Not Found', 404
+
+    @app.route('/player/manifest.json')
+    def player_manifest():
+        return jsonify({
+            "short_name": "Neko",
+            "name": "Codemao Neko",
+            "icons": [],
+            "start_url": ".",
+            "display": "standalone",
+            "theme_color": "#000000",
+            "background_color": "#ffffff"
+        })
+
+    @app.route('/proxy/<path:hostname>/<path:rest>')
+    def proxy_request(hostname, rest):
+        """代理请求到 codemao.cn"""
+        import requests as req_lib
+        # 模拟用户资料 API
+        if 'accounts/profile' in rest or 'users/detail' in rest:
+            return jsonify({
+                "id": 1716297772,
+                "nickname": "danjvan",
+                "avatar_url": "https://creation.bcmcdn.com//490/YW5kXzEwMDFfMTcxNjI5Nzc3Ml8wXzE3NTMyMzgwNTc2OTdfRHZsOXNlVlc=.jpg",
+                "fullname": "",
+                "sex": 1,
+                "birthday": 0,
+                "qq": "269******",
+                "description": "接广，求开源，好奇，交朋友请加QQ2690180230",
+                "grade": 0,
+                "programmingBasics": 0,
+                "robotBasics": 0,
+                "operatingSystem": [],
+                "parentalExpectation": [],
+                "parentalExpectationInput": "",
+                "grade_desc": "未选择"
+            })
+        url = f"https://{hostname}/{rest}"
+        try:
+            resp = req_lib.get(url, params=request.args, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }, timeout=10)
+            return resp.content, resp.status_code, {'Content-Type': resp.headers.get('Content-Type', 'application/octet-stream')}
+        except Exception as e:
+            return jsonify({'error': str(e)}), 502
 
 
 def register_file_routes():

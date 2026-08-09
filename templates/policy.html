@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - CloudDrive</title>
+    <link href="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/css/mdui.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/icons/material-icons.min.css" rel="stylesheet">
+    <link rel="icon" href="{{ url_for('static', filename='kecloud.png') }}" type="image/png">
+    <style>
+        body { background: #f5f5f5; min-height: 100vh; }
+        .policy-card {
+            max-width: 800px; margin: 40px auto; background: white;
+            border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 40px;
+        }
+        .policy-card h1 { color: #1976d2; font-size: 24px; margin-bottom: 24px; }
+        .policy-card h2 { color: #333; font-size: 20px; margin: 24px 0 12px; }
+        .policy-card h3 { color: #555; font-size: 17px; margin: 16px 0 8px; }
+        .policy-card p { color: #666; line-height: 1.8; margin: 8px 0; }
+        .policy-card ul { color: #666; line-height: 1.8; padding-left: 20px; }
+        .policy-card li { margin: 4px 0; }
+        .policy-card blockquote {
+            border-left: 4px solid #1976d2; background: #e3f2fd;
+            padding: 12px 16px; margin: 16px 0; color: #555; border-radius: 0 4px 4px 0;
+        }
+        .back-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            color: #1976d2; text-decoration: none; margin-bottom: 20px;
+            font-size: 14px; cursor: pointer;
+        }
+        .back-btn:hover { opacity: 0.8; }
+    </style>
+</head>
+<body>
+    <div class="policy-card">
+        <a class="back-btn" href="javascript:history.back()">
+            <i class="mdui-icon material-icons">arrow_back</i> 返回
+        </a>
+        <div id="content"></div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/js/mdui.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        document.getElementById('content').innerHTML = marked.parse({{ content | tojson }});
+    </script>
+</body>
+</html>
