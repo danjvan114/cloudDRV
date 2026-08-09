@@ -4,105 +4,192 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>注册</title>
+    <link rel="icon" href="{{ url_for('static', filename='kecloud.png') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/css/mdui.min.css"/>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background: #f5f5f5;
+            background-color: #f6f6f6;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-family: system-ui, -apple-system, "Microsoft YaHei", sans-serif;
         }
-        .register-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            padding: 40px;
-            max-width: 450px;
+        .cloud-login-card {
             width: 100%;
+            max-width: 620px;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 36px 40px;
+            position: relative;
         }
-        .register-card h2 {
-            color: #667eea;
-            text-align: center;
-            margin-bottom: 30px;
+        .login-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
         }
-        .btn-register {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .logo-circle {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: #e8f4ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .logo-circle img { width: 24px; height: 24px; }
+        .login-header h1 { font-size: 26px; font-weight: 600; color: #111111; }
+        .login-title { font-size: 28px; font-weight: 500; color: #1a1a1a; margin-bottom: 28px; }
+        .m2 {
+            border: 2px solid #217ee8;
+            border-radius: 10px;
+            width: 100%;
+            height: 54px;
+            padding: 0 14px;
+            font-size: 17px;
+            outline: none;
+        }
+        .m2:focus { border-color: #1565c0; }
+        .btn-next {
+            width: 100%;
+            height: 54px;
+            background-color: #217ee8;
+            color: #fff;
+            font-size: 18px;
+            border-radius: 12px;
             border: none;
-            color: white;
-            padding: 12px;
-            border-radius: 8px;
-            width: 100%;
             cursor: pointer;
-            font-size: 16px;
+            transition: opacity 0.2s;
         }
-        .btn-register:hover { opacity: 0.9; }
-        .login-link { text-align: center; margin-top: 20px; }
-        .code-row { display: flex; gap: 10px; align-items: flex-end; }
-        .code-row .mdui-textfield { flex: 1; }
-        .code-row .mdui-btn { white-space: nowrap; margin-bottom: 20px; }
+        .btn-next:hover { opacity: 0.92; }
+        .btn-next:disabled { opacity: 0.5; cursor: not-allowed; }
+        .login-link { text-align: center; margin: 24px 0 30px; font-size: 16px; color: #444; }
+        .login-link a { color: #217ee8; text-decoration: none; }
+        .bottom-tips { text-align: center; font-size: 14px; color: #777; }
+        .bottom-tips a { color: #777; text-decoration: none; }
+        .code-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 28px; }
+        .code-row .input-wrap { flex: 1; }
+        .code-row .input-wrap label { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 8px; }
+        .code-row .btn-code {
+            height: 54px;
+            padding: 0 20px;
+            background-color: #217ee8;
+            color: #fff;
+            font-size: 15px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: opacity 0.2s;
+        }
+        .code-row .btn-code:hover { opacity: 0.92; }
+        .code-row .btn-code:disabled { opacity: 0.5; cursor: not-allowed; }
+        .loading-spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <div class="register-card">
-        <h2><i class="bi bi-cloud-fill"></i> 注册账号</h2>
-        
+    <div class="cloud-login-card">
+        <div class="login-header">
+            <div class="logo-circle">
+                <img src="{{ url_for('static', filename='kecloud.png') }}" alt="Logo">
+            </div>
+            <h1>云存储</h1>
+        </div>
+
         {% with messages = get_flashed_messages() %}
         {% if messages %}
-        {% for message in messages %}
-        <div class="mdui-alert mdui-color-blue-50 mdui-text-color-blue" style="margin-bottom:16px;border-radius:8px;">{{ message }}</div>
-        {% endfor %}
+            {% for msg in messages %}
+                <div class="mdui-alert mdui-color-red-50 mdui-text-color-red" style="border-radius:10px;margin-bottom:20px;padding:12px;">{{ msg }}</div>
+            {% endfor %}
         {% endif %}
         {% endwith %}
-        
+
+        <h2 class="login-title">注册新账号</h2>
+
         <form method="POST">
-            <div class="mdui-textfield mdui-textfield-floating-label" style="margin-bottom:20px;">
-                <label class="mdui-textfield-label">用户名</label>
-                <input class="mdui-textfield-input" type="text" name="username" required>
+            <!-- 用户名 -->
+            <div style="margin-bottom:28px;">
+                <label style="display:inline-flex;align-items:center;gap:5px;margin-bottom:8px;">
+                    <i class="mdui-icon material-icons">account_circle</i>用户名
+                </label>
+                <input class="m2" id="usernameInput" name="username" type="text" placeholder="只能包含英文字母、数字、下划线" required>
             </div>
+            <!-- 邮箱 + 验证码 -->
             <div class="code-row">
-                <div class="mdui-textfield mdui-textfield-floating-label">
-                    <label class="mdui-textfield-label">邮箱</label>
-                    <input class="mdui-textfield-input" type="email" id="email" name="email" required>
+                <div class="input-wrap">
+                    <label style="display:inline-flex;align-items:center;gap:5px;margin-bottom:8px;">
+                        <i class="mdui-icon material-icons">email</i>邮箱
+                    </label>
+                    <input class="m2" id="email" name="email" type="email" placeholder="请输入邮箱" required>
                 </div>
-                <button type="button" class="mdui-btn mdui-ripple mdui-color-theme-accent" onclick="sendCode()" id="sendCodeBtn">获取验证码</button>
+                <button type="button" class="btn-code mdui-ripple mdui-ripple-white" id="sendCodeBtn" onclick="sendCode()">获取验证码</button>
             </div>
-            <div class="mdui-textfield mdui-textfield-floating-label" style="margin-bottom:20px;">
-                <label class="mdui-textfield-label">验证码</label>
-                <input class="mdui-textfield-input" type="text" name="verification_code" required maxlength="6">
+            <!-- 验证码 -->
+            <div style="margin-bottom:28px;">
+                <label style="display:inline-flex;align-items:center;gap:5px;margin-bottom:8px;">
+                    <i class="mdui-icon material-icons">verified_user</i>验证码
+                </label>
+                <input class="m2" name="verification_code" type="text" placeholder="6位验证码" maxlength="6" required>
             </div>
-            <div class="mdui-textfield mdui-textfield-floating-label" style="margin-bottom:20px;">
-                <label class="mdui-textfield-label">密码</label>
-                <input class="mdui-textfield-input" type="password" name="password" required>
+            <!-- 密码 -->
+            <div style="margin-bottom:28px;">
+                <label style="display:inline-flex;align-items:center;gap:5px;margin-bottom:8px;">
+                    <i class="mdui-icon material-icons">lock</i>密码
+                </label>
+                <input class="m2" name="password" type="password" placeholder="请输入密码" required>
             </div>
-            <div class="mdui-textfield mdui-textfield-floating-label" style="margin-bottom:20px;">
-                <label class="mdui-textfield-label">确认密码</label>
-                <input class="mdui-textfield-input" type="password" name="confirm_password" required>
+            <!-- 确认密码 -->
+            <div style="margin-bottom:28px;">
+                <label style="display:inline-flex;align-items:center;gap:5px;margin-bottom:8px;">
+                    <i class="mdui-icon material-icons">lock_outline</i>确认密码
+                </label>
+                <input class="m2" name="confirm_password" type="password" placeholder="请再次输入密码" required>
             </div>
-            <button type="submit" class="mdui-btn mdui-btn-raised mdui-ripple mdui-color-theme-accent btn-register">注册</button>
+            <button type="submit" class="btn-next mdui-ripple mdui-ripple-white">注册</button>
         </form>
-        
-        <div class="login-link">
-            <a href="{{ url_for('login') }}" class="mdui-text-color-theme">已有账号？立即登录</a>
+
+        <div class="login-link">已有账号？<a href="{{ url_for('login') }}">立即登录</a></div>
+
+        <div class="bottom-tips">
+            <a href="#">使用条款</a> | <a href="#">隐私政策</a>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/js/mdui.min.js"></script>
     <script>
+        // 从URL参数预填用户名
+        const params = new URLSearchParams(window.location.search);
+        const prefillUsername = params.get('username');
+        if (prefillUsername) {
+            document.getElementById('usernameInput').value = prefillUsername;
+        }
+
         let countdown = 0;
         function sendCode() {
             if (countdown > 0) return;
-            
             const email = document.getElementById('email').value;
             if (!email) {
                 mdui.snackbar({ message: '请先输入邮箱', timeout: 3000 });
                 return;
             }
-            
             const btn = document.getElementById('sendCodeBtn');
             btn.disabled = true;
-            
+            btn.innerHTML = '<span class="loading-spinner"></span>发送中';
+
             fetch('/send_code', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -126,11 +213,13 @@
                 } else {
                     mdui.snackbar({ message: data.message, timeout: 3000 });
                     btn.disabled = false;
+                    btn.textContent = '获取验证码';
                 }
             })
             .catch(() => {
                 mdui.snackbar({ message: '发送失败', timeout: 3000 });
                 btn.disabled = false;
+                btn.textContent = '获取验证码';
             });
         }
     </script>

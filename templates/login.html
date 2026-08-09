@@ -4,15 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录</title>
-    <!-- MDUI 1.0.2 固定CDN -->
+    <link rel="icon" href="{{ url_for('static', filename='kecloud.png') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/css/mdui.min.css"/>
-    <!-- 图标采用MDUI内置图标，无需额外bootstrap-icons -->
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background-color: #f6f6f6;
             min-height: 100vh;
@@ -21,7 +16,6 @@
             justify-content: center;
             font-family: system-ui, -apple-system, "Microsoft YaHei", sans-serif;
         }
-        /* 登录卡片容器 */
         .cloud-login-card {
             width: 100%;
             max-width: 620px;
@@ -30,7 +24,6 @@
             padding: 36px 40px;
             position: relative;
         }
-        /* 顶部logo+标题行 */
         .login-header {
             display: flex;
             align-items: center;
@@ -47,40 +40,19 @@
             justify-content: center;
             flex-shrink: 0;
         }
-        .logo-circle i {
-            font-size: 24px;
-            color: #2185eb;
-        }
-        .login-header h1 {
-            font-size: 26px;
-            font-weight: 600;
-            color: #111111;
-        }
-        .lang-switch {
-            position: absolute;
-            top: 36px;
-            right: 40px;
-            font-size: 20px;
-            color: #666;
-            cursor: pointer;
-        }
-        /* 登录标题 */
-        .login-title {
-            font-size: 28px;
-            font-weight: 500;
-            color: #1a1a1a;
-            margin-bottom: 28px;
-        }
-        /* 输入框自定义 */
-        .email-input {
-            margin-bottom: 28px;
-        }
-        .email-input .mdui-textfield-input {
+        .logo-circle img { width: 24px; height: 24px; }
+        .login-header h1 { font-size: 26px; font-weight: 600; color: #111111; }
+        .login-title { font-size: 28px; font-weight: 500; color: #1a1a1a; margin-bottom: 28px; }
+        .m2 {
+            border: 2px solid #217ee8;
+            border-radius: 10px;
+            width: 100%;
             height: 54px;
+            padding: 0 14px;
             font-size: 17px;
-            padding-left: 12px;
+            outline: none;
         }
-        /* 下一步主按钮 */
+        .m2:focus { border-color: #1565c0; }
         .btn-next {
             width: 100%;
             height: 54px;
@@ -92,175 +64,160 @@
             cursor: pointer;
             transition: opacity 0.2s;
         }
-        .btn-next:hover {
-            opacity: 0.92;
-        }
-        /* 注册链接区域 */
-        .register-tip {
-            text-align: center;
-            margin: 24px 0 30px;
-            font-size: 16px;
-            color: #444;
-        }
-        .register-tip a {
-            color: #217ee8;
-            text-decoration: none;
-        }
-        /* 通行密钥按钮 */
-        .btn-passkey {
-            width: 100%;
-            height: 52px;
-            border: 1px solid #217ee8;
-            background: #fff;
-            color: #217ee8;
-            border-radius: 12px;
-            font-size: 17px;
+        .btn-next:hover { opacity: 0.92; }
+        .btn-next:disabled { opacity: 0.5; cursor: not-allowed; }
+        .register-tip { text-align: center; margin: 24px 0 30px; font-size: 16px; color: #444; }
+        .register-tip a { color: #217ee8; text-decoration: none; }
+        .bottom-tips { text-align: center; font-size: 14px; color: #777; }
+        .bottom-tips a { color: #777; text-decoration: none; }
+        /* 密码步骤 */
+        #step2 { display: none; }
+        .user-display {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
+            gap: 10px;
+            margin-bottom: 24px;
+            padding: 12px 16px;
+            background: #f0f7ff;
+            border-radius: 10px;
+        }
+        .user-display i { color: #217ee8; font-size: 22px; }
+        .user-display span { font-size: 17px; color: #333; font-weight: 500; }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #217ee8;
             cursor: pointer;
-            margin-bottom: 36px;
-        }
-        /* 底部协议与联系方式 */
-        .bottom-tips {
-            text-align: center;
-            font-size: 14px;
-            color: #777;
-        }
-        .bottom-tips a {
-            color: #777;
-            text-decoration: none;
-        }
-        .contact-mail {
-            margin-top: 8px;
-            font-size: 18px;
-            color: #222;
-        }
-        /* 页脚Poweredby */
-        .page-footer {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #aaa;
             font-size: 15px;
         }
-        .m2{
-            border-style: solid;
-            border-color: #217ee8;
-            border-radius: 10px;
-            width: 100%;
-            height: 54px;
+        .back-link:hover { text-decoration: underline; }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div class="cloud-login-card">
-        <!-- 语言切换按钮 -->
-        <span class="lang-switch mdui-icon">aⱥ</span>
-        <!-- Logo 头部 -->
         <div class="login-header">
             <div class="logo-circle">
-                <img src="{{ url_for('static', filename='img/kecloud.png') }}" alt="Logo" style="width: 24px; height: 24px;">
+                <img src="{{ url_for('static', filename='kecloud.png') }}" alt="Logo">
             </div>
             <h1>云存储</h1>
         </div>
 
-        <!-- 闪现消息提示框 jinja2 模板 -->
         {% with messages = get_flashed_messages() %}
         {% if messages %}
             {% for msg in messages %}
-                <div class="mdui-alert mdui-color-blue-50 mdui-text-color-blue" style="border-radius:10px;margin-bottom:20px;padding:12px;">
-                    {{ msg }}
-                </div>
+                <div class="mdui-alert mdui-color-red-50 mdui-text-color-red" style="border-radius:10px;margin-bottom:20px;padding:12px;">{{ msg }}</div>
             {% endfor %}
         {% endif %}
         {% endwith %}
 
-        <h2 class="login-title">登录你的账号</h2>
-
-        <form method="POST">
-            <!-- 邮箱输入框 -->
-            <div class="">
-                <div style="box-sizing:border-box;"><label style="display:inline-flex;align-items:center;gap:5px;margin:0;padding:0;"><i class="mdui-icon material-icons">account_circle</i>用户名</label></div>
-                
-                <input class="m2" type="text" required>
-                  
-                
-                
+        <!-- 第一步：输入用户名 -->
+        <div id="step1">
+            <h2 class="login-title">登录你的账号</h2>
+            <div style="margin-bottom:28px;">
+                <label style="display:inline-flex;align-items:center;gap:5px;margin-bottom:8px;">
+                    <i class="mdui-icon material-icons">account_circle</i>用户名
+                </label>
+                <input class="m2" id="usernameInput" type="text" placeholder="请输入用户名" autocomplete="username">
             </div>
-            <div style="height: 40px;width: 100%;"></div>
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            
-
-            
-
-            <!-- 下一步按钮 -->
-            <button type="submit" class="btn-next">下一步</button>
-        </form>
-
-        <!-- 注册跳转 -->
-        <div class="register-tip">
-            还没有账号？<a href="{{ url_for('register') }}">立即注册</a>
+            <button type="button" class="btn-next mdui-ripple mdui-ripple-white" id="btnNext" onclick="checkUser()">下一步</button>
+            <div class="register-tip">还没有账号？<a href="{{ url_for('register') }}">立即注册</a></div>
         </div>
 
-        
+        <!-- 第二步：输入密码 -->
+        <div id="step2">
+            <h2 class="login-title">输入密码</h2>
+            <span class="back-link" onclick="goBack()"><i class="mdui-icon material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> 返回</span>
+            <div class="user-display">
+                <i class="mdui-icon material-icons">person</i>
+                <span id="displayName"></span>
+            </div>
+            <form method="POST" id="loginForm">
+                <input type="hidden" name="username" id="hiddenUsername">
+                <div style="margin-bottom:28px;">
+                    <label style="display:inline-flex;align-items:center;gap:5px;margin-bottom:8px;">
+                        <i class="mdui-icon material-icons">lock</i>密码
+                    </label>
+                    <input class="m2" name="password" type="password" placeholder="请输入密码" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="btn-next">登录</button>
+            </form>
+            <div class="register-tip">还没有账号？<a href="{{ url_for('register') }}">立即注册</a></div>
+        </div>
 
-        <!-- 底部协议与联系邮箱 -->
         <div class="bottom-tips">
             <a href="#">使用条款</a> | <a href="#">隐私政策</a>
-            
         </div>
     </div>
 
-    <!-- 页脚版权标注 -->
-    
-    <!-- MDUI1.0.2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/js/mdui.min.js"></script>
+    <script>
+        function checkUser() {
+            const username = document.getElementById('usernameInput').value.trim();
+            if (!username) {
+                mdui.snackbar({ message: '请输入用户名', timeout: 3000 });
+                return;
+            }
+            const btn = document.getElementById('btnNext');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span>查询中...';
+
+            fetch('/check_user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username })
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = '下一步';
+                if (data.exists) {
+                    document.getElementById('displayName').textContent = data.username;
+                    document.getElementById('hiddenUsername').value = username;
+                    document.getElementById('step1').style.display = 'none';
+                    document.getElementById('step2').style.display = 'block';
+                    document.querySelector('#step2 input[name="password"]').focus();
+                } else {
+                    mdui.snackbar({
+                        message: '该用户不存在，即将跳转到注册页面...',
+                        timeout: 2000,
+                        onClosed: function() {
+                            window.location.href = '/register?username=' + encodeURIComponent(username);
+                        }
+                    });
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = '下一步';
+                mdui.snackbar({ message: '查询失败，请重试', timeout: 3000 });
+            });
+        }
+
+        function goBack() {
+            document.getElementById('step2').style.display = 'none';
+            document.getElementById('step1').style.display = 'block';
+            document.getElementById('usernameInput').focus();
+        }
+
+        // 回车键触发下一步
+        document.getElementById('usernameInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                checkUser();
+            }
+        });
+    </script>
 </body>
 </html>

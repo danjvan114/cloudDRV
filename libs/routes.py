@@ -58,6 +58,10 @@ def register_auth_routes():
             flash('请填写完整信息')
             return redirect(url_for('register'))
 
+        if not username.isascii() or not username.replace('_', '').replace('-', '').replace('.', '').isalnum():
+            flash('用户名只能包含英文字母、数字、下划线、连字符和点')
+            return redirect(url_for('register'))
+
         if password != confirm_password:
             flash('两次密码不一致')
             return redirect(url_for('register'))
@@ -124,6 +128,15 @@ def register_auth_routes():
             return jsonify({'success': True, 'message': '验证码已发送'})
         else:
             return jsonify({'success': False, 'message': '邮件发送失败'})
+
+    @app.route('/check_user', methods=['POST'])
+    def check_user():
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        user = User.query.filter_by(username=username).first()
+        if user:
+            return jsonify({'exists': True, 'username': user.username})
+        return jsonify({'exists': False})
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():

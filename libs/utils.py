@@ -99,7 +99,11 @@ def get_user_folder(user, space):
         if not os.path.exists(space.path):
             os.makedirs(space.path, exist_ok=True)
         return space.path
-    user_folder = os.path.join(space.path, user.username)
+    # 清理用户名中的非法字符，防止 Windows 路径错误
+    safe_username = "".join(c for c in user.username if c.isalnum() or c in ('_', '-', '.'))
+    if not safe_username:
+        safe_username = f"user_{user.id}"
+    user_folder = os.path.join(space.path, safe_username)
     if not os.path.exists(user_folder):
         os.makedirs(user_folder, exist_ok=True)
     return user_folder
