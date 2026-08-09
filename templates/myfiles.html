@@ -380,12 +380,56 @@ function showAnnouncementDialog() {
             var currentList = list.map(function(a){ return a.file; }).join(',');
             if (lastSeenList === currentList) return;
             
-            // 显示第一个公告
-            loadAnnouncement(list[0].file, list);
+            // 显示 Win10 风格 Toast 通知
+            showWin10Toast(list[0].name, list);
             localStorage.setItem('announcement_last_list', currentList);
         }
     };
     xhr.send();
+}
+
+function showWin10Toast(title, allList) {
+    // 创建 Toast 容器
+    var toast = document.createElement('div');
+    toast.id = 'announcement-toast';
+    toast.style.cssText = 'position:fixed;bottom:20px;left:20px;width:360px;background:#fff;' +
+        'border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:10000;' +
+        'overflow:hidden;cursor:pointer;transition:transform 0.3s ease,opacity 0.3s ease;' +
+        'transform:translateY(100px);opacity:0;';
+    
+    toast.innerHTML = '<div style="padding:16px;">' +
+        '<div style="display:flex;align-items:center;gap:12px;">' +
+        '<i class="mdui-icon material-icons" style="color:#1976d2;font-size:24px;">campaign</i>' +
+        '<div style="flex:1;">' +
+        '<div style="font-weight:500;font-size:14px;color:#333;">' + title + '</div>' +
+        '<div style="font-size:12px;color:#999;margin-top:4px;">点击查看详情</div>' +
+        '</div>' +
+        '<i class="mdui-icon material-icons" onclick="event.stopPropagation();this.parentElement.parentElement.parentElement.remove();" ' +
+        'style="color:#999;cursor:pointer;font-size:18px;">close</i>' +
+        '</div></div>';
+    
+    document.body.appendChild(toast);
+    
+    // 滑入动画
+    setTimeout(function() {
+        toast.style.transform = 'translateY(0)';
+        toast.style.opacity = '1';
+    }, 100);
+    
+    // 点击打开公告详情
+    toast.addEventListener('click', function() {
+        toast.remove();
+        loadAnnouncement(allList[0].file, allList);
+    });
+    
+    // 5秒后自动消失
+    setTimeout(function() {
+        if (toast.parentElement) {
+            toast.style.transform = 'translateY(100px)';
+            toast.style.opacity = '0';
+            setTimeout(function() { toast.remove(); }, 300);
+        }
+    }, 5000);
 }
 
 function loadAnnouncement(filename, allList) {
