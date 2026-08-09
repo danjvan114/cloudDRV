@@ -365,9 +365,6 @@ function renameFile(md5, currentName) {
 
 // 公告弹窗
 function showAnnouncementDialog() {
-    var lastSeen = localStorage.getItem('announcement_last_seen');
-    var lastSeenList = localStorage.getItem('announcement_last_list');
-    
     // 获取公告列表
     var xhr = new XMLHttpRequest();
     xhr.open('GET', '/api/announcements', true);
@@ -376,14 +373,12 @@ function showAnnouncementDialog() {
             var list = JSON.parse(xhr.responseText);
             if (list.length === 0) return;
             
-            // 检查是否有新公告
-            var currentList = list.map(function(a){ return a.file; }).join(',');
-            if (lastSeenList === currentList) return;
-            
-            // 显示 Win10 风格 Toast 通知
+            // 每次都显示 Win10 风格 Toast 通知
             showWin10Toast(list[0].name, list);
-            localStorage.setItem('announcement_last_list', currentList);
         }
+    };
+    xhr.onerror = function() {
+        console.error('获取公告网络错误');
     };
     xhr.send();
 }
