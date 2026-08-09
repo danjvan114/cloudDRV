@@ -382,6 +382,14 @@ def register_auth_routes():
 
     @app.route('/policy/<filename>')
     def policy_page(filename):
+        # 检查是否是公告文件
+        ad_path = os.path.join(BASE_DIR, 'static', 'ad', filename)
+        if os.path.isfile(ad_path):
+            with open(ad_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            return render_template('policy.html', title=filename.replace('.md', ''), content=content)
+        
+        # 检查是否是政策文件
         if filename not in ('ys.md', 'user.md'):
             return 'Not Found', 404
         md_path = os.path.join(BASE_DIR, 'static', filename)
@@ -390,6 +398,11 @@ def register_auth_routes():
         with open(md_path, 'r', encoding='utf-8') as f:
             content = f.read()
         return render_template('policy.html', title=filename.replace('.md', ''), content=content)
+
+    @app.route('/announcements')
+    @login_required
+    def announcements_page():
+        return render_template('announcements.html')
 
     @app.route('/api/announcements')
     @login_required

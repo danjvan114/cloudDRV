@@ -411,10 +411,9 @@ function showWin10Toast(title, allList) {
         toast.style.opacity = '1';
     }, 100);
     
-    // 点击打开公告详情
+    // 点击跳转到公告列表页
     toast.addEventListener('click', function() {
-        toast.remove();
-        loadAnnouncement(allList[0].file, allList);
+        location.href = '/announcements';
     });
     
     // 5秒后自动消失
@@ -425,61 +424,6 @@ function showWin10Toast(title, allList) {
             setTimeout(function() { toast.remove(); }, 300);
         }
     }, 5000);
-}
-
-function loadAnnouncement(filename, allList) {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/announcements/' + filename, true);
-    xhr.onload = function() {
-        if (xhr.status === 200) {
-            var data = JSON.parse(xhr.responseText);
-            var dialogHtml = '<div id="announcement-dialog">' +
-                '<div class="mdui-tab mdui-tab-full-width" id="announcement-tabs">';
-            
-            for (var i = 0; i < allList.length; i++) {
-                dialogHtml += '<a href="javascript:;" class="mdui-ripple" data-file="' + allList[i].file + '">' + allList[i].name + '</a>';
-            }
-            dialogHtml += '</div>' +
-                '<div id="announcement-content" style="padding:16px;max-height:400px;overflow-y:auto;margin-top:8px;"></div>' +
-                '</div>';
-            
-            mdui.dialog({
-                title: '公告',
-                content: dialogHtml,
-                buttons: [
-                    { text: '知道了', onClick: function() {
-                        localStorage.setItem('announcement_last_seen', new Date().toISOString());
-                    }}
-                ]
-            });
-            
-            // 初始化 tab
-            var tab = new mdui.Tab('#announcement-tabs');
-            mdui.$('#announcement-tabs').on('change', function(e, index) {
-                loadAnnouncementContent(allList[index].file);
-            });
-            
-            // 加载第一个公告内容
-            loadAnnouncementContent(filename);
-        }
-    };
-    xhr.send();
-}
-
-function loadAnnouncementContent(filename) {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/announcements/' + filename, true);
-    xhr.onload = function() {
-        if (xhr.status === 200) {
-            var data = JSON.parse(xhr.responseText);
-            if (typeof marked !== 'undefined') {
-                document.getElementById('announcement-content').innerHTML = marked.parse(data.content);
-            } else {
-                document.getElementById('announcement-content').innerHTML = '<pre>' + data.content + '</pre>';
-            }
-        }
-    };
-    xhr.send();
 }
 
 // 页面加载后显示公告
