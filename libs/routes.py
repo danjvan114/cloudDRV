@@ -1383,3 +1383,7 @@ def register_index_route():
     @login_required
     def index():
         return redirect(url_for('myfiles'))
+
+    @app.route('/favicon.ico')
+    def favicon():
+        return send_file(os.path.join(app.root_path, 'kecloud.png'), mimetype='image/png')
