@@ -391,6 +391,33 @@ def register_auth_routes():
             content = f.read()
         return render_template('policy.html', title=filename.replace('.md', ''), content=content)
 
+    @app.route('/api/announcements')
+    @login_required
+    def get_announcements():
+        """获取公告列表"""
+        import glob
+        ad_dir = os.path.join(BASE_DIR, 'static', 'ad')
+        md_files = glob.glob(os.path.join(ad_dir, '*.md'))
+        announcements = []
+        for f in sorted(md_files, reverse=True):
+            name = os.path.splitext(os.path.basename(f))[0]
+            announcements.append({'name': name, 'file': os.path.basename(f)})
+        return jsonify(announcements)
+
+    @app.route('/api/announcements/<filename>')
+    @login_required
+    def get_announcement_content(filename):
+        """获取公告内容"""
+        if not filename.endswith('.md'):
+            return 'Invalid filename', 400
+        safe_name = os.path.basename(filename)
+        md_path = os.path.join(BASE_DIR, 'static', 'ad', safe_name)
+        if not os.path.isfile(md_path):
+            return 'Not Found', 404
+        with open(md_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return jsonify({'name': safe_name.replace('.md', ''), 'content': content})
+
     @app.route('/player/<path:filename>')
     def player_static(filename):
         import mimetypes

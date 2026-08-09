@@ -5,6 +5,7 @@
 {% block content %}
 <link href="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/css/mdui.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/mdui@1.0.2/dist/js/mdui.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
 <style>
 body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
@@ -361,5 +362,90 @@ function renameFile(md5, currentName) {
         form.submit();
     }, function() {}, currentName);
 }
+
+// 公告弹窗
+function showAnnouncementDialog() {
+    var lastSeen = localStorage.getItem('announcement_last_seen');
+    var lastSeenList = localStorage.getItem('announcement_last_list');
+    
+    // 获取公告列表
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/announcements', true);
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            var list = JSON.parse(xhr.responseText);
+            if (list.length === 0) return;
+            
+            // 检查是否有新公告
+            var currentList = list.map(function(a){ return a.file; }).join(',');
+            if (lastSeenList === currentList) return;
+            
+            // 显示第一个公告
+            loadAnnouncement(list[0].file, list);
+            localStorage.setItem('announcement_last_list', currentList);
+        }
+    };
+    xhr.send();
+}
+
+function loadAnnouncement(filename, allList) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/announcements/' + filename, true);
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            var data = JSON.parse(xhr.responseText);
+            var dialogHtml = '<div id="announcement-dialog">' +
+                '<div class="mdui-tab mdui-tab-full-width" id="announcement-tabs">';
+            
+            for (var i = 0; i < allList.length; i++) {
+                dialogHtml += '<a href="javascript:;" class="mdui-ripple" data-file="' + allList[i].file + '">' + allList[i].name + '</a>';
+            }
+            dialogHtml += '</div>' +
+                '<div id="announcement-content" style="padding:16px;max-height:400px;overflow-y:auto;margin-top:8px;"></div>' +
+                '</div>';
+            
+            mdui.dialog({
+                title: '公告',
+                content: dialogHtml,
+                buttons: [
+                    { text: '知道了', onClick: function() {
+                        localStorage.setItem('announcement_last_seen', new Date().toISOString());
+                    }}
+                ]
+            });
+            
+            // 初始化 tab
+            var tab = new mdui.Tab('#announcement-tabs');
+            mdui.$('#announcement-tabs').on('change', function(e, index) {
+                loadAnnouncementContent(allList[index].file);
+            });
+            
+            // 加载第一个公告内容
+            loadAnnouncementContent(filename);
+        }
+    };
+    xhr.send();
+}
+
+function loadAnnouncementContent(filename) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/announcements/' + filename, true);
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            var data = JSON.parse(xhr.responseText);
+            if (typeof marked !== 'undefined') {
+                document.getElementById('announcement-content').innerHTML = marked.parse(data.content);
+            } else {
+                document.getElementById('announcement-content').innerHTML = '<pre>' + data.content + '</pre>';
+            }
+        }
+    };
+    xhr.send();
+}
+
+// 页面加载后显示公告
+window.addEventListener('load', function() {
+    showAnnouncementDialog();
+});
 </script>
 {% endblock %}
